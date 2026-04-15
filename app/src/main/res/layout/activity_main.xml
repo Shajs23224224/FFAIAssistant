@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout 
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="FF AI Assistant"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="32dp" />
+
+    <TextView
+        android:id="@+id/tvStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Estado: Detenido"
+        android:textSize="18sp"
+        app:layout_constraintTop_toBottomOf="@id/tvTitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="24dp" />
+
+    <Button
+        android:id="@+id/btnToggleService"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Activar Servicio"
+        app:layout_constraintTop_toBottomOf="@id/tvStatus"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="24dp" />
+
+    <TextView
+        android:id="@+id/tvFpsLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="FPS Target:"
+        app:layout_constraintTop_toBottomOf="@id/btnToggleService"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="24dp" />
+
+    <SeekBar
+        android:id="@+id/seekBarFps"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:max="30"
+        android:progress="15"
+        app:layout_constraintTop_toBottomOf="@id/btnToggleService"
+        app:layout_constraintStart_toEndOf="@id/tvFpsLabel"
+        app:layout_constraintEnd_toStartOf="@id/tvFpsValue"
+        android:layout_marginTop="24dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp" />
+
+    <TextView
+        android:id="@+id/tvFpsValue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="15"
+        app:layout_constraintTop_toBottomOf="@id/btnToggleService"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="24dp" />
+
+    <Button
+        android:id="@+id/btnCalibrate"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Calibrar Controles"
+        app:layout_constraintTop_toBottomOf="@id/seekBarFps"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp" />
+
+    <CheckBox
+        android:id="@+id/cbDebugMode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Modo Debug"
+        app:layout_constraintTop_toBottomOf="@id/btnCalibrate"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp" />
+
+    <TextView
+        android:id="@+id/tvInstructions"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="@string/instructions"
+        android:textSize="14sp"
+        android:gravity="center"
+        app:layout_constraintTop_toBottomOf="@id/cbDebugMode"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="32dp" />
+
+    <TextView
+        android:id="@+id/tvLastAction"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Última acción: -"
+        android:textSize="14sp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginBottom="32dp" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

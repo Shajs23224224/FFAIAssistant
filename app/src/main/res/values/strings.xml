@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">FF AI Assistant</string>
+    <string name="service_name">FF AI Accessibility Service</string>
+    <string name="service_description">Servicio de asistencia para Free Fire. Captura pantalla y ejecuta acciones automáticamente.</string>
+    <string name="enable_service">Activar Servicio</string>
+    <string name="disable_service">Desactivar Servicio</string>
+    <string name="status_running">Activo</string>
+    <string name="status_stopped">Detenido</string>
+    <string name="fps_label">FPS:</string>
+    <string name="calibrate">Calibrar</string>
+    <string name="debug_mode">Modo Debug</string>
+    <string name="instructions">1. Activa el servicio de accesibilidad\n2. Abre Free Fire\n3. La IA se activará automáticamente</string>
+</resources>

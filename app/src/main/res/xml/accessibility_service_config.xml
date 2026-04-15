@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/service_description"
+    android:packageNames="com.dts.freefireth,com.dts.freefiremax,com.dts.freefireth1,com.dts.freefiremax1"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
+    android:accessibilityFlags="flagDefault|flagIncludeNotImportantViews|flagRequestTouchExplorationMode|flagRetrieveInteractiveWindows"
+    android:canPerformGestures="true"
+    android:canRetrieveWindowContent="true"
+    android:canRequestTouchExplorationMode="true"
+    android:notificationTimeout="100"
+    android:settingsActivity="com.ffai.assistant.MainActivity" />

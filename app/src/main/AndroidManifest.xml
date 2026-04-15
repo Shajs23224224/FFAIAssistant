@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.ffai.assistant">
+
+    <!-- Permisos Core -->
+    <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    
+    <!-- Android 12+ específicos -->
+    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    
+    <!-- Overlay y UI -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    
+    <!-- Almacenamiento para modelos y datos -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    
+    <!-- Batería -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.FFAIAssistant"
+        android:extractNativeLibs="true">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Accessibility Service Core -->
+        <!-- Accessibility Service Core - Android 12+ foregroundServiceType actualizado -->
+        <service
+            android:name=".FFAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true"
+            android:foregroundServiceType="mediaProjection|specialUse"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <!-- Floating Overlay Service -->
+        <service
+            android:name=".FloatingOverlayService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse" />
+        
+        <!-- Receiver para boot -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+
+</manifest>

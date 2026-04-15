@@ -1,0 +1,62 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Local configuration
+local.properties
+gradle.properties
+
+# Android Studio
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Keystore files
+*.jks
+*.keystore
+keystore/
+
+# Build outputs
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# External native build folder generated in Android Studio 2.2+
+.externalNativeBuild
+.cxx/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~
+
+# Database files (se regeneran)
+*.db
+*.db-journal
+
+# Capturas de pantalla para debug
+screenshots/
+captures/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Modelos grandes (se generan)
+*.tflite
+!app/src/main/assets/model_init.tflite

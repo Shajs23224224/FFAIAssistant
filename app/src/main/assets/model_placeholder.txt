@@ -1,0 +1,4 @@
+Coloca aquí el archivo model.tflite generado con convert_model.py
+
+Ejecuta:
+  python3 convert_model.py --input ../../checkpoints/final_best.npz --output app/src/main/assets/model.tflite
