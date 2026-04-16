@@ -170,7 +170,7 @@ class ServerConnection {
             while (isConnected && isActive) {
                 delay(ServerConfig.PING_INTERVAL)
                 try {
-                    session?.send(Frame.Ping())
+                    session?.send(Frame.Ping(ByteArray(0)))
                     if (ServerConfig.VERBOSE_NETWORK_LOGGING) {
                         Logger.d("Heartbeat enviado")
                     }
@@ -260,7 +260,7 @@ class ServerConnection {
             Logger.e("Error enviando frame", e)
             if (e is ClosedReceiveChannelException) {
                 isConnected = false
-                onConnectionChanged?.invoke(false)
+                onConnectionChanged?.invoke(false, "Desconectado por error")
             }
         }
     }
