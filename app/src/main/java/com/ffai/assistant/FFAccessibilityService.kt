@@ -20,6 +20,7 @@ import kotlinx.coroutines.*
 class FFAccessibilityService : AccessibilityService() {
     
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var gameLoopJob: Job? = null
     
     private var screenCapture: ScreenCapture? = null
     private var brain: Brain? = null
