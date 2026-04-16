@@ -96,9 +96,9 @@ class RemoteBrain(context: Context) {
         // - Si no, esperar
         
         return when {
-            currentState.healthRatio < 0.3f -> Action(ActionType.HEAL, duration = 500)
-            currentState.ammoRatio < 0.2f -> Action(ActionType.RELOAD, duration = 1000)
-            currentState.enemyPresent -> Action(ActionType.SHOOT, duration = 100)
+            currentState.healthRatio < 0.3f -> Action(ActionType.HEAL)
+            currentState.ammoRatio < 0.2f -> Action(ActionType.RELOAD)
+            currentState.enemyPresent -> Action(ActionType.SHOOT)
             else -> Action.hold()
         }
     }
