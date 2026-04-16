@@ -10,6 +10,7 @@ import com.ffai.assistant.capture.ScreenCapture
 import com.ffai.assistant.config.Constants
 import com.ffai.assistant.config.GameConfig
 import com.ffai.assistant.core.Brain
+import com.ffai.assistant.core.RemoteBrain
 import com.ffai.assistant.utils.Logger
 import kotlinx.coroutines.*
 
@@ -24,8 +25,12 @@ class FFAccessibilityService : AccessibilityService() {
     
     private var screenCapture: ScreenCapture? = null
     private var brain: Brain? = null
+    private var remoteBrain: RemoteBrain? = null
     private var gestureController: GestureController? = null
     private var gameConfig: GameConfig? = null
+    
+    // Modo de operación: true = IA en servidor, false = IA local
+    private val useRemoteBrain = true
     
     private var isRunning = false
     private var mediaProjectionReady = false
@@ -52,7 +57,15 @@ class FFAccessibilityService : AccessibilityService() {
         
         // Inicializar componentes
         gameConfig = GameConfig(this)
-        brain = Brain(this)
+        
+        if (useRemoteBrain) {
+            Logger.i("Usando IA remota (cloud)")
+            remoteBrain = RemoteBrain(this)
+        } else {
+            Logger.i("Usando IA local")
+            brain = Brain(this)
+        }
+        
         gestureController = GestureController(this, gameConfig!!)
         screenCapture = ScreenCapture(this)
     }
@@ -61,6 +74,7 @@ class FFAccessibilityService : AccessibilityService() {
         super.onDestroy()
         stopAI()
         brain?.destroy()
+        remoteBrain?.destroy()
         serviceScope.cancel()
         instance = null
         isServiceRunning = false
@@ -178,7 +192,11 @@ class FFAccessibilityService : AccessibilityService() {
         serviceScope.launch(Dispatchers.Default) {
             try {
                 // 1. Brain procesa frame y decide acción
-                val action = brain?.processFrame(bitmap)
+                val action = if (useRemoteBrain) {
+                    remoteBrain?.processFrame(bitmap)
+                } else {
+                    brain?.processFrame(bitmap)
+                }
                 
                 // 2. Ejecutar acción en UI thread
                 if (action != null && action.type != com.ffai.assistant.action.ActionType.HOLD) {
@@ -213,6 +231,7 @@ class FFAccessibilityService : AccessibilityService() {
     
     fun endEpisode(finalPlacement: Int) {
         brain?.endEpisode(finalPlacement)
+        remoteBrain?.endEpisode(finalPlacement)
     }
     
     private fun isFreeFirePackage(packageName: String): Boolean {
@@ -233,8 +252,17 @@ class FFAccessibilityService : AccessibilityService() {
     }
     
     private fun updateDebugInfo() {
-        val state = brain?.getCurrentState() ?: return
-        val lastAction = brain?.getEpisodeStats()?.totalActions ?: 0
+        val state = if (useRemoteBrain) {
+            remoteBrain?.getCurrentState()
+        } else {
+            brain?.getCurrentState()
+        } ?: return
+        
+        val lastAction = if (useRemoteBrain) {
+            remoteBrain?.getEpisodeStats()?.totalActions
+        } else {
+            brain?.getEpisodeStats()?.totalActions
+        } ?: 0
         
         val intent = Intent("com.ffai.assistant.DEBUG_UPDATE").apply {
             putExtra("fps", currentFps)
