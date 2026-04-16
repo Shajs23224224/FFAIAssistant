@@ -50,7 +50,7 @@ class ExperienceBuffer(private val maxSize: Int = 10000) {
 data class EpisodeStats(
     val episodeId: Long = System.currentTimeMillis(),
     val totalReward: Float = 0f,
-    val totalActions: Int = 0,
+    var totalActions: Int = 0,
     val kills: Int = 0,
     val placement: Int = 50,
     val survivalTimeMs: Long = 0,
