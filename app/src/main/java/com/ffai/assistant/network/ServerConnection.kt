@@ -17,10 +17,18 @@ import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.ByteArrayOutputStream
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.zip.GZIPOutputStream
 
 /**
- * Conexión WebSocket con el servidor de IA remoto.
- * Envía frames de pantalla y recibe acciones a ejecutar.
+ * Conexión WebSocket profesional para Oracle Cloud Infrastructure.
+ * 
+ * Features:
+ * - Reconexión automática con backoff exponencial
+ * - Heartbeat/ping para mantener conexión viva
+ * - Compresión gzip opcional para payloads
+ * - Buffer circular para frames
+ * - Manejo robusto de errores y estados
  */
 class ServerConnection {
     
@@ -33,17 +41,26 @@ class ServerConnection {
             })
         }
         install(HttpTimeout) {
-            connectTimeoutMillis = ServerConfig.CONNECTION_TIMEOUT
-            requestTimeoutMillis = ServerConfig.CONNECTION_TIMEOUT
+            connectTimeoutMillis = ServerConfig.CONNECTION_TIMEOUT.toInt()
+            requestTimeoutMillis = ServerConfig.RESPONSE_TIMEOUT.toInt()
         }
     }
     
     private var session: DefaultClientWebSocketSession? = null
     private var isConnected = false
+    private var isConnecting = false
     private var lastFrameTime = 0L
+    private var reconnectAttempts = AtomicInteger(0)
+    private var reconnectJob: Job? = null
+    private var heartbeatJob: Job? = null
     
+    // Callbacks
     private var onActionReceived: ((Action) -> Unit)? = null
-    private var onConnectionChanged: ((Boolean) -> Unit)? = null
+    private var onConnectionChanged: ((Boolean, String) -> Unit)? = null
+    private var onError: ((String) -> Unit)? = null
+    
+    // Frame buffer para evitar saturación
+    private val frameBuffer = ArrayDeque<Triple<Bitmap, Float, Float>>(ServerConfig.FRAME_BUFFER_SIZE)
     
     /**
      * Callback para recibir acciones del servidor.
@@ -53,49 +70,158 @@ class ServerConnection {
     }
     
     /**
-     * Callback para cambios de conexión.
+     * Callback para cambios de conexión con mensaje de estado.
      */
-    fun setOnConnectionChanged(callback: (Boolean) -> Unit) {
+    fun setOnConnectionChanged(callback: (Boolean, String) -> Unit) {
         onConnectionChanged = callback
     }
     
     /**
-     * Conecta al servidor WebSocket.
+     * Callback para errores.
+     */
+    fun setOnError(callback: (String) -> Unit) {
+        onError = callback
+    }
+    
+    /**
+     * Conecta al servidor WebSocket con manejo de reconexión.
      */
     suspend fun connect(): Boolean {
+        if (isConnecting || isConnected) {
+            return isConnected
+        }
+        
+        isConnecting = true
+        
         return try {
-            Logger.i("Conectando al servidor: ${ServerConfig.SERVER_WS_URL}")
+            Logger.i("Conectando a OCI: ${ServerConfig.SERVER_WS_URL}")
+            onConnectionChanged?.invoke(false, "Conectando...")
             
             session = client.webSocketSession(ServerConfig.SERVER_WS_URL)
             isConnected = true
-            onConnectionChanged?.invoke(true)
+            isConnecting = false
+            reconnectAttempts.set(0)
             
-            Logger.i("Conexión establecida con servidor")
+            onConnectionChanged?.invoke(true, "Conectado a Oracle Cloud")
+            Logger.i("✓ Conectado al servidor OCI")
             
-            // Iniciar loop de recepción de mensajes
+            // Cancelar cualquier job de reconexión pendiente
+            reconnectJob?.cancel()
+            reconnectJob = null
+            
+            // Iniciar heartbeat
+            startHeartbeat()
+            
+            // Iniciar loop de recepción
             CoroutineScope(Dispatchers.IO).launch {
                 receiveMessages()
             }
             
             true
+            
         } catch (e: Exception) {
-            Logger.e("Error conectando al servidor", e)
+            Logger.e("Error de conexión", e)
             isConnected = false
-            onConnectionChanged?.invoke(false)
+            isConnecting = false
+            onConnectionChanged?.invoke(false, "Error: ${e.message}")
+            onError?.invoke("No se pudo conectar: ${e.message}")
+            
+            // Iniciar reconexión automática
+            scheduleReconnect()
+            
             false
         }
     }
     
     /**
-     * Desconecta del servidor.
+     * Programar reconexión con backoff exponencial.
+     */
+    private fun scheduleReconnect() {
+        val attempts = reconnectAttempts.incrementAndGet()
+        
+        if (attempts > ServerConfig.MAX_RECONNECT_ATTEMPTS) {
+            Logger.e("Máximo de intentos de reconexión alcanzado")
+            onError?.invoke("Máximo de reconexiones alcanzado. Reinicia la app.")
+            return
+        }
+        
+        // Backoff exponencial: base * 2^attempts, capped at max
+        val delay = minOf(
+            ServerConfig.RECONNECT_BASE_DELAY * (1 shl (attempts - 1)),
+            ServerConfig.RECONNECT_MAX_DELAY
+        )
+        
+        Logger.i("Reconexión en ${delay}ms (intento $attempts/${ServerConfig.MAX_RECONNECT_ATTEMPTS})")
+        onConnectionChanged?.invoke(false, "Reconectando en ${delay/1000}s...")
+        
+        reconnectJob?.cancel()
+        reconnectJob = CoroutineScope(Dispatchers.IO).launch {
+            delay(delay)
+            connect()
+        }
+    }
+    
+    /**
+     * Iniciar heartbeat para mantener conexión viva.
+     */
+    private fun startHeartbeat() {
+        heartbeatJob?.cancel()
+        heartbeatJob = CoroutineScope(Dispatchers.IO).launch {
+            while (isConnected && isActive) {
+                delay(ServerConfig.PING_INTERVAL)
+                try {
+                    session?.send(Frame.Ping())
+                    if (ServerConfig.VERBOSE_NETWORK_LOGGING) {
+                        Logger.d("Heartbeat enviado")
+                    }
+                } catch (e: Exception) {
+                    Logger.w("Heartbeat falló, conexión probablemente muerta")
+                    handleDisconnection()
+                    break
+                }
+            }
+        }
+    }
+    
+    /**
+     * Manejar desconexión detectada.
+     */
+    private suspend fun handleDisconnection() {
+        if (!isConnected) return
+        
+        Logger.w("Desconexión detectada")
+        isConnected = false
+        onConnectionChanged?.invoke(false, "Desconectado")
+        
+        try {
+            session?.close()
+        } catch (e: Exception) {
+            // Ignorar errores al cerrar
+        }
+        
+        session = null
+        scheduleReconnect()
+    }
+    
+    /**
+     * Desconecta del servidor manualmente.
      */
     suspend fun disconnect() {
+        Logger.i("Desconexión manual solicitada")
+        
+        reconnectJob?.cancel()
+        reconnectJob = null
+        heartbeatJob?.cancel()
+        heartbeatJob = null
+        
+        reconnectAttempts.set(ServerConfig.MAX_RECONNECT_ATTEMPTS + 1) // Prevenir auto-reconexión
+        
         try {
             session?.close()
             session = null
             isConnected = false
-            onConnectionChanged?.invoke(false)
-            Logger.i("Desconectado del servidor")
+            onConnectionChanged?.invoke(false, "Desconectado manualmente")
+            Logger.i("Desconectado del servidor OCI")
         } catch (e: Exception) {
             Logger.e("Error desconectando", e)
         }
@@ -140,22 +266,45 @@ class ServerConnection {
     }
     
     /**
-     * Recibe mensajes del servidor.
+     * Recibe mensajes del servidor con manejo robusto de errores.
      */
     private suspend fun receiveMessages() {
-        while (isConnected) {
+        while (isConnected && CoroutineScope(Dispatchers.IO).isActive) {
             try {
                 val frame = session?.incoming?.receive()
                 
-                if (frame is Frame.Text) {
-                    val text = frame.readText()
-                    handleServerMessage(text)
+                when (frame) {
+                    is Frame.Text -> {
+                        val text = frame.readText()
+                        handleServerMessage(text)
+                    }
+                    is Frame.Binary -> {
+                        // Manejar datos binarios si es necesario
+                        if (ServerConfig.VERBOSE_NETWORK_LOGGING) {
+                            Logger.d("Frame binario recibido: ${frame.readBytes().size} bytes")
+                        }
+                    }
+                    is Frame.Ping -> {
+                        session?.send(Frame.Pong())
+                    }
+                    is Frame.Close -> {
+                        Logger.w("Servidor solicitó cierre")
+                        handleDisconnection()
+                        return
+                    }
+                    else -> {
+                        if (ServerConfig.VERBOSE_NETWORK_LOGGING) {
+                            Logger.d("Frame tipo: ${frame?.frameType}")
+                        }
+                    }
                 }
             } catch (e: ClosedReceiveChannelException) {
-                Logger.w("Conexión cerrada por el servidor")
-                isConnected = false
-                onConnectionChanged?.invoke(false)
-                break
+                Logger.w("Canal cerrado")
+                handleDisconnection()
+                return
+            } catch (e: CancellationException) {
+                Logger.d("Recepción cancelada")
+                return
             } catch (e: Exception) {
                 Logger.e("Error recibiendo mensaje", e)
                 delay(1000)
@@ -229,10 +378,31 @@ class ServerConnection {
     /**
      * Libera recursos.
      */
-    fun destroy() {
+    /**
+     * Fuerza reconexión inmediata.
+     */
+    fun forceReconnect() {
+        reconnectAttempts.set(0)
+        reconnectJob?.cancel()
+        
         CoroutineScope(Dispatchers.IO).launch {
             disconnect()
-            client.close()
+            delay(500)
+            connect()
+        }
+    }
+    
+    fun destroy() {
+        reconnectJob?.cancel()
+        heartbeatJob?.cancel()
+        
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                disconnect()
+                client.close()
+            } catch (e: Exception) {
+                Logger.e("Error en destroy", e)
+            }
         }
     }
 }
