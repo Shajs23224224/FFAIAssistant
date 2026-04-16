@@ -38,11 +38,11 @@ class RemoteBrain(context: Context) {
             episodeStats.totalActions++
         }
         
-        serverConnection.setOnConnectionChanged { connected ->
+        serverConnection.setOnConnectionChanged { connected, message ->
             if (connected) {
                 Logger.i("Conectado al servidor de IA")
             } else {
-                Logger.w("Desconectado del servidor")
+                Logger.w("Desconectado del servidor: $message")
             }
         }
         

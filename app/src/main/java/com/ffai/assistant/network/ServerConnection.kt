@@ -41,8 +41,8 @@ class ServerConnection {
             })
         }
         install(HttpTimeout) {
-            connectTimeoutMillis = ServerConfig.CONNECTION_TIMEOUT.toInt()
-            requestTimeoutMillis = ServerConfig.RESPONSE_TIMEOUT.toInt()
+            connectTimeoutMillis = ServerConfig.CONNECTION_TIMEOUT
+            requestTimeoutMillis = ServerConfig.RESPONSE_TIMEOUT
         }
     }
     
