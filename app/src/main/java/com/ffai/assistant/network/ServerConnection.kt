@@ -285,7 +285,7 @@ class ServerConnection {
                         }
                     }
                     is Frame.Ping -> {
-                        session?.send(Frame.Pong())
+                        session?.send(Frame.Pong(ByteArray(0)))
                     }
                     is Frame.Close -> {
                         Logger.w("Servidor solicitó cierre")
