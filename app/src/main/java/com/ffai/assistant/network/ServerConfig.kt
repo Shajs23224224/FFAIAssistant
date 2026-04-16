@@ -1,82 +1,69 @@
 package com.ffai.assistant.network
 
 /**
- * Configuración profesional para Oracle Cloud Infrastructure (OCI)
- * Optimizado para Always Free Tier con SSL/TLS
+ * Configuración para Google Colab + ngrok
+ * 
+ * INSTRUCCIONES:
+ * 1. Abre el notebook en Google Colab
+ * 2. Ejecuta todas las celdas
+ * 3. Copia la URL de ngrok que aparece (ej: https://abc123.ngrok.io)
+ * 4. Pega esa URL aquí en SERVER_WS_URL
+ * 5. Rebuild y reinstala el APK
+ * 
+ * NOTA: La URL de ngrok cambia cada vez que reinicias Colab.
+ * Para URL permanente: obtén token gratuito en ngrok.com
  */
 object ServerConfig {
     
     // ============================================
-    // CONFIGURACIÓN DE SERVIDOR OCI
+    // CONFIGURACIÓN NGROK/COLAB
     // ============================================
     
-    // Reemplazar con tu IP pública de Oracle Cloud VM
-    // Ejemplo: "ws://129.146.123.45/ws" (HTTP) o "wss://tudominio.com/ws" (HTTPS)
-    const val SERVER_WS_URL = "ws://YOUR_OCI_IP/ws"
+    // REEMPLAZAR con tu URL de ngrok cada vez que inicies Colab
+    // Ejemplo: "wss://abc123-def.ngrok.io/ws"
+    const val SERVER_WS_URL = "wss://YOUR_NGROK_URL/ws"
     
-    // URL HTTP base para health checks y REST API
-    const val SERVER_HTTP_URL = "http://YOUR_OCI_IP"
-    
-    // Para producción con SSL (recomendado):
-    // const val SERVER_WS_URL = "wss://your-domain.com/ws"
-    // const val SERVER_HTTP_URL = "https://your-domain.com"
+    // URL HTTP base
+    const val SERVER_HTTP_URL = "https://YOUR_NGROK_URL"
     
     // ============================================
-    // TIMING Y PERFORMANCE
+    // TIMING (Optimizado para Colab/latencia variable)
     // ============================================
     
-    // Tiempo de espera para conexión inicial (ms)
-    const val CONNECTION_TIMEOUT = 15000L
+    // Timeout extendido para Colab (puede tardar en responder)
+    const val CONNECTION_TIMEOUT = 20000L
+    const val RESPONSE_TIMEOUT = 10000L
     
-    // Timeout para recibir respuesta del servidor (ms)
-    const val RESPONSE_TIMEOUT = 5000L
+    // Heartbeat más frecuente para mantener túnel ngrok vivo
+    const val PING_INTERVAL = 20000L
     
-    // Tiempo entre pings de keepalive para mantener conexión viva (ms)
-    const val PING_INTERVAL = 30000L
+    // Frames menos frecuentes (Colab gratuito tiene límites)
+    const val FRAME_INTERVAL = 150L  // ~6.6 FPS
     
-    // Intervalo de envío de frames - 10 FPS (100ms)
-    const val FRAME_INTERVAL = 100L
-    
-    // Backoff exponencial para reconexión: base * (2 ^ intentos)
-    const val RECONNECT_BASE_DELAY = 1000L
-    const val RECONNECT_MAX_DELAY = 30000L
-    const val MAX_RECONNECT_ATTEMPTS = 10
+    // Reconexión rápida (ngrok puede reiniciar)
+    const val RECONNECT_BASE_DELAY = 2000L
+    const val RECONNECT_MAX_DELAY = 15000L
+    const val MAX_RECONNECT_ATTEMPTS = 15
     
     // ============================================
-    // COMPRESIÓN Y CALIDAD
+    // COMPRESIÓN (Importante para ngrok gratuito)
     // ============================================
     
-    // Calidad de compresión JPEG (0-100). Menor = más compresión
-    const val JPEG_QUALITY = 50
-    
-    // Usar compresión gzip adicional en el payload JSON
+    // Calidad JPEG más baja = menos datos = menos lag
+    const val JPEG_QUALITY = 40
     const val USE_GZIP_COMPRESSION = true
     
-    // Tamaño máximo de frame para enviar (reducir para menos latencia)
-    // Resolución baja pero suficiente para detección de UI
-    const val MAX_FRAME_WIDTH = 320
-    const val MAX_FRAME_HEIGHT = 180
+    // Resolución mínima viable
+    const val MAX_FRAME_WIDTH = 240
+    const val MAX_FRAME_HEIGHT = 135
     
     // ============================================
-    // BUFFER Y MEMORIA
+    // FEATURES
     // ============================================
     
-    // Tamaño del buffer circular para frames pendientes
-    const val FRAME_BUFFER_SIZE = 3
-    
-    // Memoria máxima para caché de imágenes (MB)
-    const val MAX_MEMORY_MB = 64
-    
-    // ============================================
-    // FEATURE FLAGS
-    // ============================================
-    
-    // Habilitar envío de métricas de rendimiento al servidor
+    const val FRAME_BUFFER_SIZE = 2
+    const val MAX_MEMORY_MB = 32
     const val SEND_PERFORMANCE_METRICS = true
-    
-    // Habilitar logging detallado de red
-    const val VERBOSE_NETWORK_LOGGING = false
-    
-    // Usar protocolo binario (más eficiente) vs JSON
+    const val VERBOSE_NETWORK_LOGGING = true  // Útil para debug en Colab
     const val USE_BINARY_PROTOCOL = false
 }
