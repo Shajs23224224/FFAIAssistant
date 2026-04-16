@@ -38,7 +38,6 @@ jobs:
       
     - name: Build Debug APK
       run: ./gradlew assembleDebug --stacktrace 2>&1 | tee build_output.log
-      continue-on-error: true
       
     - name: Check and Upload APK
       run: |
