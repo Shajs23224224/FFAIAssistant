@@ -335,9 +335,9 @@ class ServerConnection {
         val actionType = ActionType.valueOf(response.action ?: "HOLD")
         return Action(
             type = actionType,
-            x = response.coordinates?.x ?: 0f,
-            y = response.coordinates?.y ?: 0f,
-            duration = response.duration ?: 100
+            targetX = response.coordinates?.x ?: 0f,
+            targetY = response.coordinates?.y ?: 0f,
+            intensity = 1f
         )
     }
     
