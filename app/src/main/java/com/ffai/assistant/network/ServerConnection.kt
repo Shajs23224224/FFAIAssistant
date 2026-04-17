@@ -32,17 +32,20 @@ import java.util.zip.GZIPOutputStream
  */
 class ServerConnection {
     
-    private val client = HttpClient(OkHttp) {
-        install(WebSockets)
-        install(ContentNegotiation) {
-            json(Json {
-                ignoreUnknownKeys = true
-                isLenient = true
-            })
-        }
-        install(HttpTimeout) {
-            connectTimeoutMillis = ServerConfig.CONNECTION_TIMEOUT
-            requestTimeoutMillis = ServerConfig.RESPONSE_TIMEOUT
+    // Lazy initialization to avoid creating HttpClient on main thread
+    private val client by lazy {
+        HttpClient(OkHttp) {
+            install(WebSockets)
+            install(ContentNegotiation) {
+                json(Json {
+                    ignoreUnknownKeys = true
+                    isLenient = true
+                })
+            }
+            install(HttpTimeout) {
+                connectTimeoutMillis = ServerConfig.CONNECTION_TIMEOUT
+                requestTimeoutMillis = ServerConfig.RESPONSE_TIMEOUT
+            }
         }
     }
     
