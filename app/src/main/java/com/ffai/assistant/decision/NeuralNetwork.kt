@@ -33,8 +33,15 @@ class NeuralNetwork(context: Context) {
     
     /**
      * Realiza inferencia y devuelve probabilidades para cada acción.
+     * Retorna fallback si el modelo no está disponible.
      */
     fun predict(features: FloatArray): FloatArray {
+        // Validar que el interpreter esté disponible
+        if (interpreter == null) {
+            Logger.w("Interpreter no disponible, retornando fallback")
+            return FloatArray(Constants.NUM_ACTIONS) { 1f / Constants.NUM_ACTIONS }
+        }
+        
         return try {
             val input = Array(1) { features }
             val output = Array(1) { FloatArray(Constants.NUM_ACTIONS) }
@@ -103,15 +110,19 @@ class NeuralNetwork(context: Context) {
     private fun copyInitialModel(context: Context) {
         try {
             context.assets.open("model_init.tflite").use { input ->
+                // Eliminar archivo vacío/corrupto si existe
+                if (modelFile.exists() && modelFile.length() == 0L) {
+                    modelFile.delete()
+                }
+                
                 modelFile.outputStream().use { output ->
                     input.copyTo(output)
                 }
             }
-            Logger.i("Modelo inicial copiado a: ${modelFile.absolutePath}")
+            Logger.i("Modelo inicial copiado a: ${modelFile.absolutePath} (${modelFile.length()} bytes)")
         } catch (e: Exception) {
             Logger.e("Error copiando modelo inicial", e)
-            // Crear archivo vacío como placeholder
-            modelFile.createNewFile()
+            // No crear archivo vacío - dejar que loadModel() maneje la ausencia
         }
     }
     

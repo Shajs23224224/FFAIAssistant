@@ -55,17 +55,8 @@ class FFAccessibilityService : AccessibilityService() {
         instance = this
         Logger.i("FFAccessibilityService v${Constants.VERSION} creado")
         
-        // Inicializar componentes
+        // Inicializar solo componentes UI (no AI todavía)
         gameConfig = GameConfig(this)
-        
-        if (useRemoteBrain) {
-            Logger.i("Usando IA remota (cloud)")
-            remoteBrain = RemoteBrain(this)
-        } else {
-            Logger.i("Usando IA local")
-            brain = Brain(this)
-        }
-        
         gestureController = GestureController(this, gameConfig!!)
         screenCapture = ScreenCapture(this)
     }
@@ -85,6 +76,23 @@ class FFAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         Logger.i("Servicio de accesibilidad conectado")
         isServiceRunning = true
+        
+        // Inicializar AI solo después de confirmar permisos de accesibilidad
+        if (useRemoteBrain) {
+            Logger.i("Usando IA remota (cloud)")
+            try {
+                remoteBrain = RemoteBrain(this)
+            } catch (e: Exception) {
+                Logger.e("Error inicializando RemoteBrain", e)
+            }
+        } else {
+            Logger.i("Usando IA local")
+            try {
+                brain = Brain(this)
+            } catch (e: Exception) {
+                Logger.e("Error inicializando Brain local", e)
+            }
+        }
         
         // Notificar a la UI que el servicio está activo
         updateStatus("Servicio conectado. Abre Free Fire para iniciar.")

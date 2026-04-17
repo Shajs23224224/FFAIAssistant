@@ -19,12 +19,16 @@ object ServerConfig {
     // CONFIGURACIÓN NGROK/COLAB
     // ============================================
     
-    // REEMPLAZAR con tu URL de ngrok cada vez que inicies Colab
-    // Ejemplo: "wss://abc123-def.ngrok.io/ws"
-    const val SERVER_WS_URL = "wss://YOUR_NGROK_URL/ws"
+    // URL de ngrok actualizada
+    // Formato: wss://tudominio.ngrok-free.dev/ws
+    const val SERVER_WS_URL = "wss://poe-tipping-glitter.ngrok-free.dev/ws"
     
     // URL HTTP base
-    const val SERVER_HTTP_URL = "https://YOUR_NGROK_URL"
+    const val SERVER_HTTP_URL = "https://poe-tipping-glitter.ngrok-free.dev"
+    
+    // Token de ngrok (para uso en Colab notebook)
+    // NOTA: Este token es solo para referencia, se usa en el notebook de Colab
+    const val NGROK_TOKEN = "3CU4gdr4ZZBNCaiS2SS0M65EZZH_55e54r4qkAkq8aEu2MQE8"
     
     // ============================================
     // TIMING (Optimizado para Colab/latencia variable)
