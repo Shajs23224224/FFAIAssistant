@@ -91,6 +91,24 @@ jobs:
         if-no-files-found: ignore
         retention-days: 7
         
+    - name: Show Kotlin Compile Errors
+      if: failure()
+      run: |
+        echo "========================================"
+        echo "      KOTLIN COMPILATION ERRORS"
+        echo "========================================"
+        # Buscar logs de compilación de Kotlin
+        find app/build -name "*.log" -type f 2>/dev/null | head -10
+        # Mostrar errores de compileDebugKotlin
+        cat app/build/outputs/logs/*.log 2>/dev/null || true
+        # Mostrar output de Gradle con errores
+        ls -la app/build/outputs/ 2>/dev/null || true
+        # Buscar archivos con problemas
+        echo ""
+        echo "=== Verifying Kotlin Files ==="
+        find app/src/main/java -name "*.kt" -type f | wc -l
+        echo "Kotlin files found"
+
     - name: Build Status Summary
       if: always()
       run: |
@@ -103,8 +121,5 @@ jobs:
           ls -lh app/build/outputs/apk/debug/app-debug.apk
         else
           echo "❌ BUILD FAILED - APK not found"
-          echo ""
-          echo "=== Gradle Build Errors ==="
-          find app/build -name "*.log" -exec cat {} \; 2>/dev/null | head -50
         fi
         echo "========================================"
