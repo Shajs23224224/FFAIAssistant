@@ -20,7 +20,11 @@ import kotlinx.coroutines.*
  */
 class FFAccessibilityService : AccessibilityService() {
     
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    // Exception handler para coroutines
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        Logger.e("Coroutine error", throwable)
+    }
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default + exceptionHandler)
     private var gameLoopJob: Job? = null
     
     private var screenCapture: ScreenCapture? = null
@@ -77,25 +81,26 @@ class FFAccessibilityService : AccessibilityService() {
         Logger.i("Servicio de accesibilidad conectado")
         isServiceRunning = true
         
-        // Inicializar AI solo después de confirmar permisos de accesibilidad
-        if (useRemoteBrain) {
-            Logger.i("Usando IA remota (cloud)")
+        // Notificar inmediatamente (no bloquear UI thread)
+        updateStatus("Servicio conectado. Iniciando IA...")
+        
+        // Inicializar AI en hilo de fondo para no bloquear el servicio
+        serviceScope.launch(Dispatchers.IO) {
             try {
-                remoteBrain = RemoteBrain(this)
+                if (useRemoteBrain) {
+                    Logger.i("Usando IA remota (cloud)")
+                    remoteBrain = RemoteBrain(this@FFAccessibilityService)
+                    updateStatus("IA remota lista. Abre Free Fire.")
+                } else {
+                    Logger.i("Usando IA local")
+                    brain = Brain(this@FFAccessibilityService)
+                    updateStatus("IA local lista. Abre Free Fire.")
+                }
             } catch (e: Exception) {
-                Logger.e("Error inicializando RemoteBrain", e)
-            }
-        } else {
-            Logger.i("Usando IA local")
-            try {
-                brain = Brain(this)
-            } catch (e: Exception) {
-                Logger.e("Error inicializando Brain local", e)
+                Logger.e("Error inicializando AI", e)
+                updateStatus("Error IA: ${e.message}")
             }
         }
-        
-        // Notificar a la UI que el servicio está activo
-        updateStatus("Servicio conectado. Abre Free Fire para iniciar.")
     }
     
     override fun onAccessibilityEvent(event: AccessibilityEvent) {

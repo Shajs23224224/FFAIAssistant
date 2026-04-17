@@ -2,9 +2,12 @@ package com.ffai.assistant.config
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.graphics.Point
 import android.graphics.PointF
 import android.graphics.Rect
+import android.os.Build
 import android.view.WindowManager
+import com.ffai.assistant.utils.Logger
 
 /**
  * Configuración de coordenadas de UI de Free Fire
@@ -22,14 +25,41 @@ class GameConfig(context: Context) {
     val scaleY: Float
     
     init {
-        val metrics = windowManager.currentWindowMetrics
-        val bounds = metrics.bounds
-        screenWidth = bounds.width()
-        screenHeight = bounds.height()
+        // Obtener dimensiones de pantalla con manejo de errores
+        var width = 1080
+        var height = 2400
+        
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val metrics = windowManager.currentWindowMetrics
+                val bounds = metrics.bounds
+                width = bounds.width()
+                height = bounds.height()
+            } else {
+                @Suppress("DEPRECATION")
+                val display = windowManager.defaultDisplay
+                val size = Point()
+                @Suppress("DEPRECATION")
+                display?.getRealSize(size)
+                width = size.x
+                height = size.y
+            }
+        } catch (e: Exception) {
+            Logger.e("Error obteniendo dimensiones de pantalla, usando defaults", e)
+            // Fallback: usar valores de pantalla estándar
+            val displayMetrics = context.resources.displayMetrics
+            width = displayMetrics.widthPixels
+            height = displayMetrics.heightPixels
+        }
+        
+        screenWidth = width
+        screenHeight = height
         
         // Calcular escala basada en resolución base 1080x2400 (Android 12 típico)
         scaleX = screenWidth / 1080f
         scaleY = screenHeight / 2400f
+        
+        Logger.i("GameConfig inicializado: ${screenWidth}x${screenHeight}, scale: ${scaleX}x${scaleY}")
     }
     
     // Coordenadas base (para 1080x2400)
