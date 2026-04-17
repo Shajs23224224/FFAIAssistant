@@ -23,7 +23,11 @@ object Logger {
     fun w(message: String) {
         Log.w(Constants.DEBUG_TAG, message)
     }
-    
+
+    fun w(message: String, throwable: Throwable) {
+        Log.w(Constants.DEBUG_TAG, message, throwable)
+    }
+
     fun e(message: String, throwable: Throwable? = null) {
         Log.e(Constants.DEBUG_TAG, message, throwable)
     }
