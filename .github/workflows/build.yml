@@ -48,11 +48,29 @@ jobs:
         echo "=== App Directory ==="
         ls -la app/ 2>/dev/null || echo "No app directory"
         
-    - name: Clean and Build with Gradle
+    - name: Clean Build
+      run: ./gradlew clean
+      
+    - name: Compile Kotlin
+      run: ./gradlew compileDebugKotlin --info --stacktrace 2>&1 | tee kotlin-compile.log
+      timeout-minutes: 15
+      continue-on-error: true
+      
+    - name: Check Compilation Result
       run: |
-        ./gradlew clean
-        ./gradlew assembleDebug --info --stacktrace
-      timeout-minutes: 30
+        if grep -q "BUILD SUCCESSFUL" kotlin-compile.log; then
+          echo "✅ Kotlin compilation successful"
+        else
+          echo "❌ Kotlin compilation failed"
+          cat kotlin-compile.log | grep -A 10 "error:" || true
+          cat kotlin-compile.log | grep -B 5 "Unresolved reference" || true
+          exit 1
+        fi
+
+    - name: Full Build with Gradle
+      if: success()
+      run: ./gradlew assembleDebug --info --stacktrace
+      timeout-minutes: 15
       
     - name: Verify Build Outputs
       run: |
