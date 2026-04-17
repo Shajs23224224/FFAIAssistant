@@ -48,8 +48,10 @@ jobs:
         echo "=== App Directory ==="
         ls -la app/ 2>/dev/null || echo "No app directory"
         
-    - name: Build with Gradle
-      run: ./gradlew assembleDebug --info --stacktrace
+    - name: Clean and Build with Gradle
+      run: |
+        ./gradlew clean
+        ./gradlew assembleDebug --info --stacktrace
       timeout-minutes: 30
       
     - name: Verify Build Outputs
