@@ -259,29 +259,6 @@ class FFAccessibilityService : AccessibilityService() {
         sendBroadcast(intent)
     }
     
-    private fun updateDebugInfo() {
-        val state = if (useRemoteBrain) {
-            remoteBrain?.getCurrentState()
-        } else {
-            brain?.getCurrentState()
-        } ?: return
-        
-        val lastAction = if (useRemoteBrain) {
-            remoteBrain?.getEpisodeStats()?.totalActions
-        } else {
-            brain?.getEpisodeStats()?.totalActions
-        } ?: 0
-        
-        val intent = Intent("com.ffai.assistant.DEBUG_UPDATE").apply {
-            putExtra("fps", currentFps)
-            putExtra("action", "Action #${lastAction}")
-            putExtra("health", state.healthRatio)
-            putExtra("ammo", state.ammoRatio)
-            putExtra("enemy", state.enemyPresent)
-        }
-        sendBroadcast(intent)
-    }
-    
     fun isAIActive(): Boolean = isRunning
     fun getCurrentFps(): Int = currentFps
     fun getBrain(): Brain? = brain

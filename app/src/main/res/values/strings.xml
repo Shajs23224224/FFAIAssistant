@@ -8,6 +8,5 @@
     <string name="status_stopped">Detenido</string>
     <string name="fps_label">FPS:</string>
     <string name="calibrate">Calibrar</string>
-    <string name="debug_mode">Modo Debug</string>
     <string name="instructions">1. Activa el servicio de accesibilidad\n2. Abre Free Fire\n3. La IA se activará automáticamente</string>
 </resources>

@@ -68,6 +68,6 @@ object ServerConfig {
     const val FRAME_BUFFER_SIZE = 2
     const val MAX_MEMORY_MB = 32
     const val SEND_PERFORMANCE_METRICS = true
-    const val VERBOSE_NETWORK_LOGGING = true  // Útil para debug en Colab
+    const val VERBOSE_NETWORK_LOGGING = false  // Desactivado para producción
     const val USE_BINARY_PROTOCOL = false
 }

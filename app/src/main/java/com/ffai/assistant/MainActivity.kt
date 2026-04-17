@@ -11,7 +11,6 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
-import android.widget.CheckBox
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
@@ -31,7 +30,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var seekBarFps: SeekBar
     private lateinit var tvFpsValue: TextView
     private lateinit var btnCalibrate: Button
-    private lateinit var cbDebugMode: CheckBox
     private lateinit var tvLastAction: TextView
     
     private var isServiceEnabled = false
@@ -43,14 +41,6 @@ class MainActivity : AppCompatActivity() {
                 "com.ffai.assistant.STATUS_UPDATE" -> {
                     val status = intent.getStringExtra("status") ?: ""
                     runOnUiThread { tvStatus.text = "Estado: $status" }
-                }
-                "com.ffai.assistant.DEBUG_UPDATE" -> {
-                    val fps = intent.getIntExtra("fps", 0)
-                    val action = intent.getStringExtra("action") ?: "-"
-                    runOnUiThread {
-                        tvLastAction.text = "FPS: $fps | Acción: $action"
-                        tvLastAction.visibility = TextView.VISIBLE
-                    }
                 }
             }
         }
@@ -102,7 +92,6 @@ class MainActivity : AppCompatActivity() {
         seekBarFps = findViewById(R.id.seekBarFps)
         tvFpsValue = findViewById(R.id.tvFpsValue)
         btnCalibrate = findViewById(R.id.btnCalibrate)
-        cbDebugMode = findViewById(R.id.cbDebugMode)
         tvLastAction = findViewById(R.id.tvLastAction)
         
         btnToggleService.setOnClickListener {
@@ -125,11 +114,6 @@ class MainActivity : AppCompatActivity() {
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
-        
-        cbDebugMode.setOnCheckedChangeListener { _, isChecked ->
-            Config.setDebugMode(isChecked)
-            Logger.debugMode = isChecked
-        }
     }
     
     private fun loadSettings() {
@@ -138,14 +122,11 @@ class MainActivity : AppCompatActivity() {
         val fps = Config.getFpsTarget()
         seekBarFps.progress = fps - 5
         tvFpsValue.text = fps.toString()
-        
-        cbDebugMode.isChecked = Config.isDebugMode()
     }
     
     private fun registerReceivers() {
         val filter = IntentFilter().apply {
             addAction("com.ffai.assistant.STATUS_UPDATE")
-            addAction("com.ffai.assistant.DEBUG_UPDATE")
         }
         registerReceiver(statusReceiver, filter)
     }
