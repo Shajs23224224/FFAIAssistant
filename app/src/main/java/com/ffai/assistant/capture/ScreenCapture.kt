@@ -37,31 +37,87 @@ class ScreenCapture(private val context: Context) {
     
     /**
      * Inicia la captura de pantalla.
+     * @return true si se inició correctamente, false si falló
      */
-    fun start(resultCode: Int, data: Intent, onFrame: (Bitmap) -> Unit) {
+    fun start(resultCode: Int, data: Intent?, onFrame: (Bitmap) -> Unit): Boolean {
         if (isCapturing) {
             Logger.w("ScreenCapture ya está iniciado")
-            return
+            return true
         }
-        
+
+        // Validar parámetros de entrada
+        if (resultCode != android.app.Activity.RESULT_OK || data == null) {
+            Logger.e("ScreenCapture: resultCode inválido ($resultCode) o data nulo")
+            return false
+        }
+
         this.onFrameCallback = onFrame
-        
-        val projectionManager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE)
-            as MediaProjectionManager
-        
-        mediaProjection = projectionManager.getMediaProjection(resultCode, data)
-        
-        if (mediaProjection == null) {
-            Logger.e("No se pudo obtener MediaProjection")
-            return
+
+        try {
+            val projectionManager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE)
+                as MediaProjectionManager?
+
+            if (projectionManager == null) {
+                Logger.e("ScreenCapture: MediaProjectionManager no disponible")
+                return false
+            }
+
+            mediaProjection = projectionManager.getMediaProjection(resultCode, data)
+
+            if (mediaProjection == null) {
+                Logger.e("ScreenCapture: No se pudo obtener MediaProjection")
+                return false
+            }
+
+            // Validar que la proyección esté activa
+            try {
+                setupImageReader()
+                createVirtualDisplay()
+            } catch (e: Exception) {
+                Logger.e("ScreenCapture: Error creando ImageReader/VirtualDisplay", e)
+                cleanup()
+                return false
+            }
+
+            isCapturing = true
+            lastFpsTime = System.currentTimeMillis()
+            Logger.i("ScreenCapture iniciado correctamente")
+            return true
+
+        } catch (e: SecurityException) {
+            Logger.e("ScreenCapture: SecurityException al iniciar captura", e)
+            cleanup()
+            return false
+        } catch (e: IllegalStateException) {
+            Logger.e("ScreenCapture: IllegalStateException - estado inválido", e)
+            cleanup()
+            return false
+        } catch (e: NullPointerException) {
+            Logger.e("ScreenCapture: NullPointerException", e)
+            cleanup()
+            return false
+        } catch (e: Exception) {
+            Logger.e("ScreenCapture: Error inesperado al iniciar", e)
+            cleanup()
+            return false
         }
-        
-        setupImageReader()
-        createVirtualDisplay()
-        
-        isCapturing = true
-        lastFpsTime = System.currentTimeMillis()
-        Logger.i("ScreenCapture iniciado")
+    }
+
+    /**
+     * Limpia recursos parciales en caso de error.
+     */
+    private fun cleanup() {
+        try {
+            virtualDisplay?.release()
+            virtualDisplay = null
+            imageReader?.close()
+            imageReader = null
+            mediaProjection?.stop()
+            mediaProjection = null
+            handler = null
+        } catch (e: Exception) {
+            Logger.w("ScreenCapture: Error durante cleanup", e)
+        }
     }
     
     /**
@@ -69,20 +125,10 @@ class ScreenCapture(private val context: Context) {
      */
     fun stop() {
         if (!isCapturing) return
-        
+
         isCapturing = false
-        
-        virtualDisplay?.release()
-        virtualDisplay = null
-        
-        imageReader?.close()
-        imageReader = null
-        
-        mediaProjection?.stop()
-        mediaProjection = null
-        
-        handler = null
-        
+        cleanup()
+
         Logger.i("ScreenCapture detenido. FPS promedio: $currentFps")
     }
     
@@ -127,28 +173,55 @@ class ScreenCapture(private val context: Context) {
     }
     
     private fun createVirtualDisplay() {
-        val windowManager = context.getSystemService(Context.WINDOW_SERVICE) 
-            as android.view.WindowManager
-        val metrics = windowManager.currentWindowMetrics
-        val bounds = metrics.bounds
-        
-        val width = bounds.width()
-        val height = bounds.height()
-        val density = context.resources.configuration.densityDpi
-        
-        virtualDisplay = mediaProjection?.createVirtualDisplay(
-            "FFAIScreenCapture",
-            Constants.FRAME_WIDTH,
-            Constants.FRAME_HEIGHT,
-            density,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            imageReader?.surface,
-            null,
-            handler
-        )
-        
-        if (virtualDisplay == null) {
-            Logger.e("No se pudo crear VirtualDisplay")
+        try {
+            val windowManager = context.getSystemService(Context.WINDOW_SERVICE)
+                as android.view.WindowManager?
+
+            if (windowManager == null) {
+                Logger.e("ScreenCapture: WindowManager no disponible")
+                throw IllegalStateException("WindowManager no disponible")
+            }
+
+            val metrics = windowManager.currentWindowMetrics
+            val bounds = metrics.bounds
+
+            val width = bounds.width()
+            val height = bounds.height()
+            val density = context.resources.configuration.densityDpi
+
+            // Validar dimensiones antes de crear
+            if (width <= 0 || height <= 0 || density <= 0) {
+                Logger.e("ScreenCapture: Dimensiones inválidas (${width}x${height}, density=$density)")
+                throw IllegalStateException("Dimensiones de pantalla inválidas")
+            }
+
+            virtualDisplay = mediaProjection?.createVirtualDisplay(
+                "FFAIScreenCapture",
+                Constants.FRAME_WIDTH,
+                Constants.FRAME_HEIGHT,
+                density,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                imageReader?.surface,
+                null,
+                handler
+            )
+
+            if (virtualDisplay == null) {
+                Logger.e("ScreenCapture: No se pudo crear VirtualDisplay")
+                throw IllegalStateException("VirtualDisplay creation returned null")
+            }
+
+            Logger.i("ScreenCapture: VirtualDisplay creado correctamente")
+
+        } catch (e: SecurityException) {
+            Logger.e("ScreenCapture: SecurityException creando VirtualDisplay", e)
+            throw e
+        } catch (e: IllegalStateException) {
+            Logger.e("ScreenCapture: IllegalStateException creando VirtualDisplay", e)
+            throw e
+        } catch (e: Exception) {
+            Logger.e("ScreenCapture: Error inesperado creando VirtualDisplay", e)
+            throw IllegalStateException("Error creando VirtualDisplay: ${e.message}", e)
         }
     }
     

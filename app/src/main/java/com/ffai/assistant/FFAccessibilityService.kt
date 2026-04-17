@@ -35,10 +35,12 @@ class FFAccessibilityService : AccessibilityService() {
     
     // Modo de operación: true = IA en servidor, false = IA local
     private val useRemoteBrain = true
-    
+
     private var isRunning = false
     private var mediaProjectionReady = false
     private var freeFireActive = false
+    private var isFullyInitialized = false
+    private var activityReady = false
     
     // Performance tracking
     private var frameCount = 0
@@ -58,11 +60,9 @@ class FFAccessibilityService : AccessibilityService() {
         super.onCreate()
         instance = this
         Logger.i("FFAccessibilityService v${Constants.VERSION} creado")
-        
-        // Inicializar solo componentes UI (no AI todavía)
-        gameConfig = GameConfig(this)
-        gestureController = GestureController(this, gameConfig!!)
-        screenCapture = ScreenCapture(this)
+
+        // No inicializar componentes críticos aquí - esperar a onServiceConnected()
+        // y a la confirmación de la Activity para evitar crashes por ciclo de vida
     }
     
     override fun onDestroy() {
@@ -76,31 +76,41 @@ class FFAccessibilityService : AccessibilityService() {
         Logger.i("FFAccessibilityService destruido")
     }
     
+    @RequiresApi(Build.VERSION_CODES.N)
     override fun onServiceConnected() {
         super.onServiceConnected()
         Logger.i("Servicio de accesibilidad conectado")
         isServiceRunning = true
-        
-        // Notificar inmediatamente (no bloquear UI thread)
-        updateStatus("Servicio conectado. Iniciando IA...")
-        
-        // Inicializar AI en hilo de fondo para no bloquear el servicio
+
+        // Inicializar componentes básicos (no dependen de permisos de captura)
+        serviceScope.launch(Dispatchers.Default) {
+            try {
+                gameConfig = GameConfig(this@FFAccessibilityService)
+                gestureController = GestureController(this@FFAccessibilityService, gameConfig!!)
+                Logger.i("Componentes de UI inicializados")
+            } catch (e: Exception) {
+                Logger.e("Error inicializando componentes UI", e)
+            }
+        }
+
+        // Inicializar AI en hilo de fondo (no bloquea el servicio)
         serviceScope.launch(Dispatchers.IO) {
             try {
                 if (useRemoteBrain) {
                     Logger.i("Usando IA remota (cloud)")
                     remoteBrain = RemoteBrain(this@FFAccessibilityService)
-                    updateStatus("IA remota lista. Abre Free Fire.")
                 } else {
                     Logger.i("Usando IA local")
                     brain = Brain(this@FFAccessibilityService)
-                    updateStatus("IA local lista. Abre Free Fire.")
                 }
+                updateStatus("IA lista. Esperando permiso de captura...")
             } catch (e: Exception) {
                 Logger.e("Error inicializando AI", e)
                 updateStatus("Error IA: ${e.message}")
             }
         }
+
+        updateStatus("Servicio conectado. Abre la app para activar captura.")
     }
     
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
@@ -131,22 +141,74 @@ class FFAccessibilityService : AccessibilityService() {
     
     /**
      * Inicia MediaProjection con el resultado de la actividad de permiso.
+     * @return true si se inició correctamente, false si falló
      */
-    fun startMediaProjection(resultCode: Int, data: Intent) {
-        if (mediaProjectionReady) return
-        
-        screenCapture?.start(resultCode, data) { bitmap ->
-            // Callback llamado en cada frame capturado
-            onFrameCaptured(bitmap)
+    fun startMediaProjection(resultCode: Int, data: Intent?): Boolean {
+        if (mediaProjectionReady) {
+            Logger.w("MediaProjection ya está listo")
+            return true
         }
-        
+
+        // Validar que la actividad haya confirmado estar lista
+        if (!activityReady) {
+            Logger.w("MainActivity no ha confirmado estar lista aún")
+            // Continuar de todas formas, pero loguear advertencia
+        }
+
+        // Validar parámetros
+        if (resultCode != android.app.Activity.RESULT_OK || data == null) {
+            Logger.e("startMediaProjection: resultCode inválido ($resultCode) o data nulo")
+            updateStatus("Error: Permiso de captura inválido")
+            return false
+        }
+
+        // Lazy initialization de ScreenCapture
+        if (screenCapture == null) {
+            try {
+                screenCapture = ScreenCapture(this)
+                Logger.i("ScreenCapture creado lazy")
+            } catch (e: Exception) {
+                Logger.e("Error creando ScreenCapture", e)
+                updateStatus("Error: No se pudo crear captura")
+                return false
+            }
+        }
+
+        // Iniciar captura con manejo de error
+        val success = try {
+            screenCapture?.start(resultCode, data) { bitmap ->
+                onFrameCaptured(bitmap)
+            } ?: false
+        } catch (e: Exception) {
+            Logger.e("Error iniciando ScreenCapture", e)
+            false
+        }
+
+        if (!success) {
+            Logger.e("No se pudo iniciar MediaProjection")
+            updateStatus("Error: No se pudo iniciar captura")
+            return false
+        }
+
         mediaProjectionReady = true
-        Logger.i("MediaProjection iniciado")
-        
+        isFullyInitialized = true
+        Logger.i("MediaProjection iniciado correctamente")
+        updateStatus("Captura iniciada. Esperando Free Fire...")
+
         // Si Free Fire ya está activo, iniciar el loop de IA
         if (freeFireActive) {
             startGameLoop()
         }
+
+        return true
+    }
+
+    /**
+     * Notifica que la MainActivity está lista.
+     */
+    fun setActivityReady(ready: Boolean) {
+        activityReady = ready
+        Logger.i("MainActivity ready state: $ready")
     }
     
     /**
@@ -199,7 +261,14 @@ class FFAccessibilityService : AccessibilityService() {
     @RequiresApi(Build.VERSION_CODES.N)
     private fun onFrameCaptured(bitmap: android.graphics.Bitmap) {
         if (!isRunning) return
-        
+
+        // Validar que el servicio esté completamente inicializado
+        if (!isFullyInitialized || gestureController == null) {
+            Logger.w("onFrameCaptured: Servicio no inicializado completamente")
+            bitmap.recycle()
+            return
+        }
+
         val frameStart = System.currentTimeMillis()
         
         serviceScope.launch(Dispatchers.Default) {

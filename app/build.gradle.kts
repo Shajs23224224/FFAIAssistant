@@ -20,11 +20,18 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        debug {
+            // Debug sin información de debug para evitar builds duplicadas
+            // Usar initWith para copiar configuración de release
+            initWith(buildTypes.getByName("release"))
+            isDebuggable = false
         }
     }
     compileOptions {

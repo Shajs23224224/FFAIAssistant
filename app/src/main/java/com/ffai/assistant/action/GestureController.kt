@@ -28,16 +28,23 @@ class GestureController(
      * Ejecuta una acción completa.
      */
     fun execute(action: Action) {
-        val now = System.currentTimeMillis()
-        
-        // Verificar cooldown entre acciones
-        if (now - lastActionTime < Constants.ACTION_COOLDOWN_MS) {
-            return
-        }
-        
-        lastActionTime = now
-        
-        when (action.type) {
+        try {
+            val now = System.currentTimeMillis()
+
+            // Verificar que el servicio esté conectado
+            if (!service.isEnabled) {
+                Logger.w("GestureController: Servicio no habilitado")
+                return
+            }
+
+            // Verificar cooldown entre acciones
+            if (now - lastActionTime < Constants.ACTION_COOLDOWN_MS) {
+                return
+            }
+
+            lastActionTime = now
+
+            when (action.type) {
             ActionType.AIM -> executeAim(action.targetX, action.targetY)
             ActionType.SHOOT -> executeShoot()
             ActionType.MOVE_FORWARD -> executeMove(0f, -action.intensity)
@@ -53,6 +60,9 @@ class GestureController(
             ActionType.ROTATE_LEFT -> executeRotate(-0.5f)
             ActionType.ROTATE_RIGHT -> executeRotate(0.5f)
             ActionType.HOLD -> { /* No hacer nada */ }
+            }
+        } catch (e: Exception) {
+            Logger.e("GestureController: Error ejecutando acción ${action.type}", e)
         }
     }
     
@@ -120,36 +130,56 @@ class GestureController(
      * Tap simple en coordenadas.
      */
     private fun tap(x: Float, y: Float, durationMs: Long = 80) {
-        val finalX = (x + humanizedOffset()).coerceIn(0f, gameConfig.screenWidth.toFloat())
-        val finalY = (y + humanizedOffset()).coerceIn(0f, gameConfig.screenHeight.toFloat())
-        
-        val path = Path().apply {
-            moveTo(finalX, finalY)
+        try {
+            val finalX = (x + humanizedOffset()).coerceIn(0f, gameConfig.screenWidth.toFloat())
+            val finalY = (y + humanizedOffset()).coerceIn(0f, gameConfig.screenHeight.toFloat())
+
+            val path = Path().apply {
+                moveTo(finalX, finalY)
+            }
+
+            val gesture = GestureDescription.Builder()
+                .addStroke(GestureDescription.StrokeDescription(path, 0, durationMs))
+                .build()
+
+            val dispatched = try {
+                service.dispatchGesture(gesture, null, null)
+            } catch (e: Exception) {
+                Logger.w("GestureController: Error en dispatchGesture (tap)", e)
+                false
+            }
+
+            Logger.d("Tap en ($finalX, $finalY): success=$dispatched")
+        } catch (e: Exception) {
+            Logger.e("GestureController: Error en tap($x, $y)", e)
         }
-        
-        val gesture = GestureDescription.Builder()
-            .addStroke(GestureDescription.StrokeDescription(path, 0, durationMs))
-            .build()
-        
-        val dispatched = service.dispatchGesture(gesture, null, null)
-        Logger.d("Tap en ($finalX, $finalY): success=$dispatched")
     }
     
     /**
      * Drag de un punto a otro.
      */
     private fun drag(fromX: Float, fromY: Float, toX: Float, toY: Float, durationMs: Long) {
-        val path = Path().apply {
-            moveTo(fromX, fromY)
-            lineTo(toX, toY)
+        try {
+            val path = Path().apply {
+                moveTo(fromX, fromY)
+                lineTo(toX, toY)
+            }
+
+            val gesture = GestureDescription.Builder()
+                .addStroke(GestureDescription.StrokeDescription(path, 0, durationMs))
+                .build()
+
+            val dispatched = try {
+                service.dispatchGesture(gesture, null, null)
+            } catch (e: Exception) {
+                Logger.w("GestureController: Error en dispatchGesture (drag)", e)
+                false
+            }
+
+            Logger.d("Drag: ($fromX, $fromY) -> ($toX, $toY): success=$dispatched")
+        } catch (e: Exception) {
+            Logger.e("GestureController: Error en drag", e)
         }
-        
-        val gesture = GestureDescription.Builder()
-            .addStroke(GestureDescription.StrokeDescription(path, 0, durationMs))
-            .build()
-        
-        val dispatched = service.dispatchGesture(gesture, null, null)
-        Logger.d("Drag: ($fromX, $fromY) -> ($toX, $toY): success=$dispatched")
     }
     
     /**

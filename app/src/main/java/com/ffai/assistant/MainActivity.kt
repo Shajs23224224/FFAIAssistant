@@ -51,14 +51,24 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+            // Notificar al servicio que la actividad está lista
+            FFAccessibilityService.instance?.setActivityReady(true)
+
             // Iniciar MediaProjection en el servicio
-            FFAccessibilityService.instance?.startMediaProjection(
+            val success = FFAccessibilityService.instance?.startMediaProjection(
                 result.resultCode,
-                result.data!!
-            )
-            isCapturing = true
-            updateUIState()
-            Toast.makeText(this, "Captura de pantalla iniciada", Toast.LENGTH_SHORT).show()
+                result.data
+            ) ?: false
+
+            if (success) {
+                isCapturing = true
+                updateUIState()
+                Toast.makeText(this, "Captura de pantalla iniciada", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Error al iniciar captura. Reintentando...", Toast.LENGTH_LONG).show()
+                isCapturing = false
+                updateUIState()
+            }
         } else {
             Toast.makeText(this, "Permiso denegado. La IA no puede funcionar.", Toast.LENGTH_LONG).show()
         }
@@ -79,6 +89,17 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         checkServiceStatus()
         updateUIState()
+
+        // Notificar al servicio que la actividad está en primer plano
+        if (isServiceEnabled && FFAccessibilityService.isServiceRunning) {
+            FFAccessibilityService.instance?.setActivityReady(true)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Notificar que la actividad ya no está en primer plano
+        FFAccessibilityService.instance?.setActivityReady(false)
     }
     
     override fun onDestroy() {
