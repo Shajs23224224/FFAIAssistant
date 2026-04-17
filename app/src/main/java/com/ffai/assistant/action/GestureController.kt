@@ -32,7 +32,7 @@ class GestureController(
             val now = System.currentTimeMillis()
 
             // Verificar que el servicio esté conectado
-            if (!service.isEnabled) {
+            if (!isAccessibilityServiceEnabled()) {
                 Logger.w("GestureController: Servicio no habilitado")
                 return
             }
@@ -197,5 +197,16 @@ class GestureController(
         val variance = random.nextInt(Constants.HUMAN_DELAY_VARIANCE_MS * 2 + 1) - 
                        Constants.HUMAN_DELAY_VARIANCE_MS
         Thread.sleep(baseMs + variance)
+    }
+
+    /**
+     * Verifica si el servicio de accesibilidad está habilitado.
+     */
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        return try {
+            service.rootInActiveWindow != null
+        } catch (e: Exception) {
+            false
+        }
     }
 }
