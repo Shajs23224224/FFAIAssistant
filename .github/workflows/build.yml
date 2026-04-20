@@ -25,6 +25,11 @@ jobs:
         java -version
         echo "JAVA_HOME=$JAVA_HOME"
         
+    - name: Set JAVA_HOME explicitly
+      run: |
+        echo "JAVA_HOME=$JAVA_HOME_17_X64" >> $GITHUB_ENV
+        echo "PATH=$JAVA_HOME_17_X64/bin:$PATH" >> $GITHUB_ENV
+        
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
         
