@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     
     <!-- Android 13+ (Notificaciones) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -55,7 +56,7 @@
             android:name=".FFAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="true"
-            android:foregroundServiceType="specialUse"
+            android:foregroundServiceType="mediaProjection"
             android:enabled="true">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
@@ -80,7 +81,7 @@
             android:name=".KeepAliveService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="specialUse" />
+            android:foregroundServiceType="dataSync" />
 
     </application>
 
