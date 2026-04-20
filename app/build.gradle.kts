@@ -69,10 +69,9 @@ android {
             )
         }
         debug {
-            // Debug sin información de debug para evitar builds duplicadas
-            // Usar initWith para copiar configuración de release
-            initWith(buildTypes.getByName("release"))
-            isDebuggable = false
+            isMinifyEnabled = false
+            isShrinkResources = false
+            isDebuggable = true
         }
     }
     compileOptions {
