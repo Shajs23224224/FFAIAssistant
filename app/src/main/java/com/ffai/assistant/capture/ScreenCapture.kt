@@ -10,8 +10,11 @@ import android.media.Image
 import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.DisplayMetrics
+import android.view.WindowManager
 import com.ffai.assistant.config.Constants
 import com.ffai.assistant.utils.Logger
 import java.nio.ByteBuffer
@@ -69,10 +72,13 @@ class ScreenCapture(private val context: Context) {
                 return false
             }
 
+            // Obtener dimensiones de pantalla primero
+            val (screenWidth, screenHeight, density) = getScreenDimensions()
+            
             // Validar que la proyección esté activa
             try {
-                setupImageReader()
-                createVirtualDisplay()
+                setupImageReader(screenWidth, screenHeight)
+                createVirtualDisplay(screenWidth, screenHeight, density)
             } catch (e: Exception) {
                 Logger.e("ScreenCapture: Error creando ImageReader/VirtualDisplay", e)
                 cleanup()
@@ -135,12 +141,13 @@ class ScreenCapture(private val context: Context) {
     fun isActive(): Boolean = isCapturing
     fun getCurrentFps(): Int = currentFps
     
-    private fun setupImageReader() {
+    private fun setupImageReader(width: Int, height: Int) {
         handler = Handler(Looper.getMainLooper())
         
+        // Usar dimensiones de pantalla reales para evitar problemas de escalado
         imageReader = ImageReader.newInstance(
-            Constants.FRAME_WIDTH,
-            Constants.FRAME_HEIGHT,
+            width,
+            height,
             PixelFormat.RGBA_8888,
             3  // Máximo 3 buffers pendientes
         )
@@ -172,33 +179,38 @@ class ScreenCapture(private val context: Context) {
         }, handler)
     }
     
-    private fun createVirtualDisplay() {
-        try {
-            val windowManager = context.getSystemService(Context.WINDOW_SERVICE)
-                as android.view.WindowManager?
-
-            if (windowManager == null) {
-                Logger.e("ScreenCapture: WindowManager no disponible")
-                throw IllegalStateException("WindowManager no disponible")
-            }
-
+    private fun getScreenDimensions(): Triple<Int, Int, Int> {
+        val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager?
+            ?: throw IllegalStateException("WindowManager no disponible")
+        
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // API 30+ (Android 11+)
             val metrics = windowManager.currentWindowMetrics
             val bounds = metrics.bounds
+            Triple(bounds.width(), bounds.height(), context.resources.configuration.densityDpi)
+        } else {
+            // API 21-29 (Android 5.0 - 10)
+            val displayMetrics = DisplayMetrics()
+            @Suppress("DEPRECATION")
+            windowManager.defaultDisplay.getRealMetrics(displayMetrics)
+            Triple(displayMetrics.widthPixels, displayMetrics.heightPixels, displayMetrics.densityDpi)
+        }
+    }
 
-            val width = bounds.width()
-            val height = bounds.height()
-            val density = context.resources.configuration.densityDpi
-
+    private fun createVirtualDisplay(width: Int, height: Int, density: Int) {
+        try {
             // Validar dimensiones antes de crear
             if (width <= 0 || height <= 0 || density <= 0) {
                 Logger.e("ScreenCapture: Dimensiones inválidas (${width}x${height}, density=$density)")
                 throw IllegalStateException("Dimensiones de pantalla inválidas")
             }
 
+            Logger.i("ScreenCapture: Creando VirtualDisplay ${width}x${height} (density=$density)")
+
             virtualDisplay = mediaProjection?.createVirtualDisplay(
                 "FFAIScreenCapture",
-                Constants.FRAME_WIDTH,
-                Constants.FRAME_HEIGHT,
+                width,
+                height,
                 density,
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                 imageReader?.surface,
@@ -230,22 +242,27 @@ class ScreenCapture(private val context: Context) {
         val buffer: ByteBuffer = planes[0].buffer
         val pixelStride = planes[0].pixelStride
         val rowStride = planes[0].rowStride
-        val rowPadding = rowStride - pixelStride * Constants.FRAME_WIDTH
+        val width = image.width
+        val height = image.height
+        val rowPadding = rowStride - pixelStride * width
         
-        // Crear bitmap con padding incluido
+        // Crear bitmap con dimensiones reales de la imagen
         val bitmap = Bitmap.createBitmap(
-            Constants.FRAME_WIDTH + rowPadding / pixelStride,
-            Constants.FRAME_HEIGHT,
+            width + rowPadding / pixelStride,
+            height,
             Bitmap.Config.ARGB_8888
         )
         
         bitmap.copyPixelsFromBuffer(buffer)
         
-        // Si hay padding, recortar al tamaño deseado
-        return if (rowPadding > 0) {
-            Bitmap.createBitmap(bitmap, 0, 0, Constants.FRAME_WIDTH, Constants.FRAME_HEIGHT)
-        } else {
-            bitmap
+        // Redimensionar al tamaño deseado para procesamiento
+        val scaled = Bitmap.createScaledBitmap(bitmap, Constants.FRAME_WIDTH, Constants.FRAME_HEIGHT, true)
+        
+        // Liberar bitmap original si es diferente
+        if (bitmap !== scaled) {
+            bitmap.recycle()
         }
+        
+        return scaled
     }
 }
