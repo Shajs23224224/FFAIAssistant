@@ -19,7 +19,11 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-        cache: gradle
+        
+    - name: Verify Java Version
+      run: |
+        java -version
+        echo "JAVA_HOME=$JAVA_HOME"
         
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
