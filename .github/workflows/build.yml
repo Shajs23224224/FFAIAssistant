@@ -57,8 +57,12 @@ jobs:
           echo "✅ Kotlin compilation successful"
         else
           echo "❌ Kotlin compilation failed"
-          cat kotlin-compile.log | grep -A 10 "error:" || true
-          cat kotlin-compile.log | grep -B 5 "Unresolved reference" || true
+          echo ""
+          echo "=== LAST 100 LINES OF BUILD LOG ==="
+          tail -100 kotlin-compile.log
+          echo ""
+          echo "=== SEARCHING FOR ERRORS ==="
+          grep -E "(e:|ERROR|Failed|error:|Unresolved|Exception)" kotlin-compile.log || echo "No error patterns found"
           exit 1
         fi
 
