@@ -40,11 +40,16 @@ class ScreenCaptureService : Service() {
     companion object {
         const val ACTION_START_CAPTURE = "com.ffai.assistant.START_CAPTURE"
         const val ACTION_STOP_CAPTURE = "com.ffai.assistant.STOP_CAPTURE"
+        const val ACTION_CAPTURE_ERROR = "com.ffai.assistant.CAPTURE_ERROR"
         const val EXTRA_RESULT_CODE = "extra_result_code"
         const val EXTRA_DATA = "extra_data"
+        const val EXTRA_ERROR_MESSAGE = "error_message"
         
         const val NOTIFICATION_CHANNEL_ID = "screen_capture_channel"
         const val NOTIFICATION_ID = 1001
+        
+        const val MAX_RETRY_ATTEMPTS = 3
+        const val RETRY_DELAY_MS = 1000L
         
         @Volatile
         var isRunning = false
@@ -52,6 +57,10 @@ class ScreenCaptureService : Service() {
             
         @Volatile
         var instance: ScreenCaptureService? = null
+            private set
+            
+        @Volatile
+        var currentFps: Int = 0
             private set
     }
 
@@ -83,7 +92,7 @@ class ScreenCaptureService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START_CAPTURE -> {
-                val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, -1)
+                val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Activity.RESULT_CANCELED)
                 val data = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     intent.getParcelableExtra(EXTRA_DATA, Intent::class.java)
                 } else {
@@ -91,14 +100,31 @@ class ScreenCaptureService : Service() {
                     intent.getParcelableExtra(EXTRA_DATA)
                 }
                 
-                if (resultCode == -1 || data == null) {
-                    Logger.e("ScreenCaptureService: resultCode o data inválidos")
+                // Validación estricta según las 10 reglas de arquitectura
+                if (resultCode != Activity.RESULT_OK) {
+                    Logger.e("ScreenCaptureService: resultCode inválido ($resultCode), se requiere RESULT_OK")
+                    reportError("Permiso de captura denegado por el usuario")
                     stopSelf()
                     return START_NOT_STICKY
                 }
                 
-                startForegroundService()
-                startCapture(resultCode, data)
+                if (data == null) {
+                    Logger.e("ScreenCaptureService: Intent data es null")
+                    reportError("Datos de autorización no disponibles")
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
+                
+                try {
+                    startForegroundService()
+                    startCaptureWithRetry(resultCode, data, 0)
+                } catch (e: Exception) {
+                    Logger.e("ScreenCaptureService: Error fatal iniciando captura", e)
+                    reportError("Error iniciando servicio: ${e.message}")
+                    cleanup()
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
             }
             ACTION_STOP_CAPTURE -> {
                 stopCapture()
@@ -107,6 +133,13 @@ class ScreenCaptureService : Service() {
         }
         
         return START_STICKY
+    }
+    
+    private fun reportError(message: String) {
+        Logger.e("ScreenCaptureService Error: $message")
+        sendBroadcast(Intent(ACTION_CAPTURE_ERROR).apply {
+            putExtra(EXTRA_ERROR_MESSAGE, message)
+        })
     }
 
     private fun startForegroundService() {
@@ -164,6 +197,42 @@ class ScreenCaptureService : Service() {
             .build()
     }
 
+    private fun startCaptureWithRetry(resultCode: Int, data: Intent, attempt: Int) {
+        if (attempt >= MAX_RETRY_ATTEMPTS) {
+            Logger.e("ScreenCaptureService: Máximo de reintentos ($MAX_RETRY_ATTEMPTS) alcanzado")
+            reportError("No se pudo iniciar captura después de $MAX_RETRY_ATTEMPTS intentos")
+            stopSelf()
+            return
+        }
+        
+        try {
+            startCapture(resultCode, data)
+        } catch (e: SecurityException) {
+            Logger.e("ScreenCaptureService: SecurityException en intento ${attempt + 1}", e)
+            if (attempt < MAX_RETRY_ATTEMPTS - 1) {
+                Logger.i("ScreenCaptureService: Reintentando en ${RETRY_DELAY_MS}ms...")
+                backgroundHandler?.postDelayed({
+                    cleanup()
+                    startCaptureWithRetry(resultCode, data, attempt + 1)
+                }, RETRY_DELAY_MS)
+            } else {
+                reportError("Permiso de seguridad denegado: ${e.message}")
+                stopSelf()
+            }
+        } catch (e: Exception) {
+            Logger.e("ScreenCaptureService: Error en intento ${attempt + 1}", e)
+            if (attempt < MAX_RETRY_ATTEMPTS - 1) {
+                backgroundHandler?.postDelayed({
+                    cleanup()
+                    startCaptureWithRetry(resultCode, data, attempt + 1)
+                }, RETRY_DELAY_MS)
+            } else {
+                reportError("Error de captura: ${e.message}")
+                stopSelf()
+            }
+        }
+    }
+
     private fun startCapture(resultCode: Int, data: Intent) {
         if (isCapturing.get()) {
             Logger.w("ScreenCaptureService: Ya está capturando")
@@ -171,22 +240,36 @@ class ScreenCaptureService : Service() {
         }
 
         try {
-            // Obtener MediaProjectionManager de forma segura
+            // Obtener MediaProjectionManager de forma segura - sin cast peligroso
             val projectionManager = getSystemService(MediaProjectionManager::class.java)
-                ?: throw IllegalStateException("MediaProjectionManager no disponible")
+            if (projectionManager == null) {
+                throw IllegalStateException("MediaProjectionManager no disponible")
+            }
 
             Logger.i("ScreenCaptureService: Solicitando MediaProjection...")
             
-            // Crear MediaProjection
+            // PASO 5: Crear MediaProjection con datos exactos - nunca reconstruir el Intent
             mediaProjection = projectionManager.getMediaProjection(resultCode, data)
             
+            // PASO 6: Validar proyección antes de continuar
             if (mediaProjection == null) {
-                Logger.e("ScreenCaptureService: No se pudo obtener MediaProjection")
-                stopSelf()
-                return
+                Logger.e("ScreenCaptureService: MediaProjection es null")
+                throw IllegalStateException("No se pudo obtener MediaProjection - resultado inválido")
             }
             
             Logger.i("ScreenCaptureService: MediaProjection obtenido correctamente")
+            
+            // PASO 7: Configurar callback para saber cuándo se detiene la proyección
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                mediaProjection?.registerCallback(object : MediaProjection.Callback() {
+                    override fun onStop() {
+                        Logger.w("ScreenCaptureService: MediaProjection detenida por el sistema")
+                        isCapturing.set(false)
+                        stopCapture()
+                        stopSelf()
+                    }
+                }, backgroundHandler)
+            }
 
             // Obtener dimensiones de pantalla
             val (screenWidth, screenHeight, density) = getScreenDimensions()

@@ -70,9 +70,24 @@ class FFAccessibilityService : AccessibilityService() {
                     stopGameLoop()
                     updateStatus("Captura detenida")
                 }
+                "com.ffai.assistant.CAPTURE_ERROR" -> {
+                    val errorMessage = intent.getStringExtra("error_message") ?: "Error desconocido en captura"
+                    Logger.e("FFAccessibilityService: Error de captura - $errorMessage")
+                    captureServiceReady = false
+                    updateStatus("Error: $errorMessage")
+                    // Notificar a la MainActivity del error
+                    sendBroadcast(Intent("com.ffai.assistant.CAPTURE_ERROR").apply {
+                        putExtra("error_message", errorMessage)
+                    })
+                }
                 "com.ffai.assistant.NEW_FRAME" -> {
                     // Recibir frame como parcelable
-                    val bitmap = intent.getParcelableExtra<Bitmap>("bitmap")
+                    val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        intent.getParcelableExtra("bitmap", Bitmap::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        intent.getParcelableExtra("bitmap")
+                    }
                     if (bitmap != null) {
                         onFrameCaptured(bitmap)
                     }
@@ -162,6 +177,7 @@ class FFAccessibilityService : AccessibilityService() {
         val filter = IntentFilter().apply {
             addAction("com.ffai.assistant.CAPTURE_STARTED")
             addAction("com.ffai.assistant.CAPTURE_STOPPED")
+            addAction("com.ffai.assistant.CAPTURE_ERROR")
             addAction("com.ffai.assistant.NEW_FRAME")
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

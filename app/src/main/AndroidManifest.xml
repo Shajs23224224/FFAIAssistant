@@ -7,9 +7,15 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     
+    <!-- Android 13+ (Notificaciones) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    
     <!-- Android 12+ específicos -->
     <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    
+    <!-- Red y conectividad -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     
     <!-- Overlay y UI -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
@@ -61,12 +67,20 @@
 
         <!-- Screen Capture Service - Foreground Service dedicado para MediaProjection -->
         <!-- Android 10+ requiere foreground service para captura continua -->
+        <!-- Importante: mediaProjection es el único tipo necesario para captura -->
         <service
             android:name=".capture.ScreenCaptureService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="mediaProjection"
             android:description="@string/capture_service_description" />
+            
+        <!-- Servicio adicional para mantener la app viva (watchdog) -->
+        <service
+            android:name=".KeepAliveService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse" />
 
     </application>
 
