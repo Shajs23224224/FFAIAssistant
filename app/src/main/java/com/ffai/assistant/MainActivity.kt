@@ -16,6 +16,8 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import com.ffai.assistant.capture.ScreenCaptureService
 import com.ffai.assistant.utils.Config
 import com.ffai.assistant.utils.Logger
 
@@ -42,6 +44,16 @@ class MainActivity : AppCompatActivity() {
                     val status = intent.getStringExtra("status") ?: ""
                     runOnUiThread { tvStatus.text = getString(R.string.status_format, status) }
                 }
+                "com.ffai.assistant.CAPTURE_STARTED" -> {
+                    isCapturing = true
+                    updateUIState()
+                    Toast.makeText(context, getString(R.string.capture_started), Toast.LENGTH_SHORT).show()
+                }
+                "com.ffai.assistant.CAPTURE_STOPPED" -> {
+                    isCapturing = false
+                    updateUIState()
+                    Toast.makeText(context, "Captura detenida", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -51,26 +63,49 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-            // Notificar al servicio que la actividad está lista
-            FFAccessibilityService.instance?.setActivityReady(true)
-
-            // Iniciar MediaProjection en el servicio
-            val success = FFAccessibilityService.instance?.startMediaProjection(
-                result.resultCode,
-                result.data
-            ) ?: false
-
-            if (success) {
-                isCapturing = true
-                updateUIState()
-                Toast.makeText(this, getString(R.string.capture_started), Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, getString(R.string.capture_start_error), Toast.LENGTH_LONG).show()
-                isCapturing = false
-                updateUIState()
-            }
+            // Iniciar el Foreground Service de captura con los datos de MediaProjection
+            startScreenCaptureService(result.resultCode, result.data)
         } else {
             Toast.makeText(this, getString(R.string.capture_permission_denied), Toast.LENGTH_LONG).show()
+            isCapturing = false
+            updateUIState()
+        }
+    }
+    
+    private fun startScreenCaptureService(resultCode: Int, data: Intent) {
+        Logger.i("MainActivity: Iniciando ScreenCaptureService...")
+        
+        val serviceIntent = Intent(this, ScreenCaptureService::class.java).apply {
+            action = ScreenCaptureService.ACTION_START_CAPTURE
+            putExtra(ScreenCaptureService.EXTRA_RESULT_CODE, resultCode)
+            putExtra(ScreenCaptureService.EXTRA_DATA, data)
+        }
+        
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ContextCompat.startForegroundService(this, serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+        } catch (e: Exception) {
+            Logger.e("MainActivity: Error iniciando ScreenCaptureService", e)
+            Toast.makeText(this, getString(R.string.capture_start_error), Toast.LENGTH_LONG).show()
+            isCapturing = false
+            updateUIState()
+        }
+    }
+    
+    private fun stopScreenCaptureService() {
+        Logger.i("MainActivity: Deteniendo ScreenCaptureService...")
+        
+        val serviceIntent = Intent(this, ScreenCaptureService::class.java).apply {
+            action = ScreenCaptureService.ACTION_STOP_CAPTURE
+        }
+        
+        try {
+            startService(serviceIntent)
+        } catch (e: Exception) {
+            Logger.e("MainActivity: Error deteniendo ScreenCaptureService", e)
         }
     }
     
@@ -151,6 +186,8 @@ class MainActivity : AppCompatActivity() {
     private fun registerReceivers() {
         val filter = IntentFilter().apply {
             addAction("com.ffai.assistant.STATUS_UPDATE")
+            addAction("com.ffai.assistant.CAPTURE_STARTED")
+            addAction("com.ffai.assistant.CAPTURE_STOPPED")
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
@@ -197,7 +234,8 @@ class MainActivity : AppCompatActivity() {
         }
         
         if (isCapturing) {
-            // Detener
+            // Detener captura
+            stopScreenCaptureService()
             FFAccessibilityService.instance?.stopAI()
             isCapturing = false
             updateUIState()
@@ -209,8 +247,13 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun requestMediaProjection() {
-        val projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) 
-            as MediaProjectionManager
+        // Usar el método seguro para obtener MediaProjectionManager
+        val projectionManager = getSystemService(MediaProjectionManager::class.java)
+        if (projectionManager == null) {
+            Logger.e("MainActivity: MediaProjectionManager no disponible")
+            Toast.makeText(this, "Error: MediaProjectionManager no disponible", Toast.LENGTH_LONG).show()
+            return
+        }
         val intent = projectionManager.createScreenCaptureIntent()
         mediaProjectionLauncher.launch(intent)
     }

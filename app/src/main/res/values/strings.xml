@@ -26,4 +26,5 @@
     <string name="dialog_calibration_message">La calibración automática detectará:\n• Joystick izquierdo (movimiento)\n• Joystick derecho (mira)\n• Botón de disparo\n• Botón de curación\n• Botón de recarga\n\nAbre Free Fire y toca cada control cuando se indique.</string>
     <string name="understood">Entendido</string>
     <string name="last_action_placeholder">Última acción: -</string>
+    <string name="capture_service_description">Servicio de captura de pantalla para análisis de IA. Requerido para captura continua de Free Fire.</string>
 </resources>

@@ -1,12 +1,16 @@
 package com.ffai.assistant
 
 import android.accessibilityservice.AccessibilityService
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.graphics.Bitmap
 import android.os.Build
 import android.view.accessibility.AccessibilityEvent
 import androidx.annotation.RequiresApi
 import com.ffai.assistant.action.GestureController
-import com.ffai.assistant.capture.ScreenCapture
+import com.ffai.assistant.capture.ScreenCaptureService
 import com.ffai.assistant.config.Constants
 import com.ffai.assistant.config.GameConfig
 import com.ffai.assistant.core.Brain
@@ -27,7 +31,6 @@ class FFAccessibilityService : AccessibilityService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default + exceptionHandler)
     private var gameLoopJob: Job? = null
     
-    private var screenCapture: ScreenCapture? = null
     private var brain: Brain? = null
     private var remoteBrain: RemoteBrain? = null
     private var gestureController: GestureController? = null
@@ -37,15 +40,46 @@ class FFAccessibilityService : AccessibilityService() {
     private val useRemoteBrain = true
 
     private var isRunning = false
-    private var mediaProjectionReady = false
+    private var captureServiceReady = false
     private var freeFireActive = false
     private var isFullyInitialized = false
     private var activityReady = false
+    private var receiverRegistered = false
     
     // Performance tracking
     private var frameCount = 0
     private var lastFpsTime = 0L
     private var currentFps = 0
+    
+    // Receiver para escuchar frames del ScreenCaptureService
+    private val captureReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.action) {
+                "com.ffai.assistant.CAPTURE_STARTED" -> {
+                    Logger.i("FFAccessibilityService: Captura iniciada")
+                    captureServiceReady = true
+                    isFullyInitialized = true
+                    updateStatus("Captura lista. Esperando Free Fire...")
+                    if (freeFireActive) {
+                        startGameLoop()
+                    }
+                }
+                "com.ffai.assistant.CAPTURE_STOPPED" -> {
+                    Logger.i("FFAccessibilityService: Captura detenida")
+                    captureServiceReady = false
+                    stopGameLoop()
+                    updateStatus("Captura detenida")
+                }
+                "com.ffai.assistant.NEW_FRAME" -> {
+                    // Recibir frame como parcelable
+                    val bitmap = intent.getParcelableExtra<Bitmap>("bitmap")
+                    if (bitmap != null) {
+                        onFrameCaptured(bitmap)
+                    }
+                }
+            }
+        }
+    }
     
     companion object {
         var instance: FFAccessibilityService? = null
@@ -70,6 +104,13 @@ class FFAccessibilityService : AccessibilityService() {
         stopAI()
         brain?.destroy()
         remoteBrain?.destroy()
+        
+        // Desregistrar receiver
+        if (receiverRegistered) {
+            unregisterReceiver(captureReceiver)
+            receiverRegistered = false
+        }
+        
         serviceScope.cancel()
         instance = null
         isServiceRunning = false
@@ -81,6 +122,9 @@ class FFAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         Logger.i("Servicio de accesibilidad conectado")
         isServiceRunning = true
+        
+        // Registrar receiver para escuchar eventos del ScreenCaptureService
+        registerCaptureReceiver()
 
         // Inicializar componentes básicos (no dependen de permisos de captura)
         serviceScope.launch(Dispatchers.Default) {
@@ -104,7 +148,7 @@ class FFAccessibilityService : AccessibilityService() {
                     Logger.i("Usando IA local")
                     brain = Brain(this@FFAccessibilityService)
                 }
-                updateStatus("IA lista. Esperando permiso de captura...")
+                updateStatus("IA lista. Usa la app para iniciar captura.")
             } catch (e: Exception) {
                 Logger.e("Error inicializando AI", e)
                 updateStatus("Error IA: ${e.message}")
@@ -112,6 +156,22 @@ class FFAccessibilityService : AccessibilityService() {
         }
 
         updateStatus("Servicio conectado. Abre la app para activar captura.")
+    }
+    
+    private fun registerCaptureReceiver() {
+        val filter = IntentFilter().apply {
+            addAction("com.ffai.assistant.CAPTURE_STARTED")
+            addAction("com.ffai.assistant.CAPTURE_STOPPED")
+            addAction("com.ffai.assistant.NEW_FRAME")
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(captureReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(captureReceiver, filter)
+        }
+        receiverRegistered = true
+        Logger.i("FFAccessibilityService: CaptureReceiver registrado")
     }
     
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
@@ -141,76 +201,18 @@ class FFAccessibilityService : AccessibilityService() {
     }
     
     /**
-     * Inicia MediaProjection con el resultado de la actividad de permiso.
-     * @return true si se inició correctamente, false si falló
-     */
-    fun startMediaProjection(resultCode: Int, data: Intent?): Boolean {
-        if (mediaProjectionReady) {
-            Logger.w("MediaProjection ya está listo")
-            return true
-        }
-
-        // Validar que la actividad haya confirmado estar lista
-        if (!activityReady) {
-            Logger.w("MainActivity no ha confirmado estar lista aún")
-            // Continuar de todas formas, pero loguear advertencia
-        }
-
-        // Validar parámetros
-        if (resultCode != android.app.Activity.RESULT_OK || data == null) {
-            Logger.e("startMediaProjection: resultCode inválido ($resultCode) o data nulo")
-            updateStatus("Error: Permiso de captura inválido")
-            return false
-        }
-
-        // Lazy initialization de ScreenCapture
-        if (screenCapture == null) {
-            try {
-                screenCapture = ScreenCapture(this)
-                Logger.i("ScreenCapture creado lazy")
-            } catch (e: Exception) {
-                Logger.e("Error creando ScreenCapture", e)
-                updateStatus("Error: No se pudo crear captura")
-                return false
-            }
-        }
-
-        // Iniciar captura con manejo de error
-        val success = try {
-            screenCapture?.start(resultCode, data) { bitmap ->
-                onFrameCaptured(bitmap)
-            } ?: false
-        } catch (e: Exception) {
-            Logger.e("Error iniciando ScreenCapture", e)
-            false
-        }
-
-        if (!success) {
-            Logger.e("No se pudo iniciar MediaProjection")
-            updateStatus("Error: No se pudo iniciar captura")
-            return false
-        }
-
-        mediaProjectionReady = true
-        isFullyInitialized = true
-        Logger.i("MediaProjection iniciado correctamente")
-        updateStatus("Captura iniciada. Esperando Free Fire...")
-
-        // Si Free Fire ya está activo, iniciar el loop de IA
-        if (freeFireActive) {
-            startGameLoop()
-        }
-
-        return true
-    }
-
-    /**
      * Notifica que la MainActivity está lista.
+     * @deprecated Ya no es necesario con la nueva arquitectura de servicio
      */
     fun setActivityReady(ready: Boolean) {
         activityReady = ready
         Logger.i("MainActivity ready state: $ready")
     }
+    
+    /**
+     * Verifica si el servicio de captura está listo
+     */
+    fun isCaptureReady(): Boolean = captureServiceReady
     
     /**
      * Detiene completamente la IA.
@@ -220,21 +222,21 @@ class FFAccessibilityService : AccessibilityService() {
         gameLoopJob?.cancel()
         gameLoopJob = null
         
-        screenCapture?.stop()
-        mediaProjectionReady = false
+        captureServiceReady = false
         
         updateStatus("Servicio detenido")
         Logger.i("IA detenida")
     }
     
     private fun onFreeFireStarted() {
-        updateStatus("Free Fire detectado. Esperando permiso de captura...")
+        updateStatus("Free Fire detectado.")
         
-        // Si ya tenemos MediaProjection, iniciar directamente
-        if (mediaProjectionReady) {
+        // Si ya tenemos el servicio de captura listo, iniciar directamente
+        if (captureServiceReady) {
             startGameLoop()
+        } else {
+            updateStatus("Free Fire detectado. Inicia captura desde la app.")
         }
-        // Si no, la MainActivity debe solicitar el permiso
     }
     
     private fun onFreeFireStopped() {
