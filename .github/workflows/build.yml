@@ -19,16 +19,7 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-        
-    - name: Verify Java Version
-      run: |
-        java -version
-        echo "JAVA_HOME=$JAVA_HOME"
-        
-    - name: Set JAVA_HOME explicitly
-      run: |
-        echo "JAVA_HOME=$JAVA_HOME_17_X64" >> $GITHUB_ENV
-        echo "PATH=$JAVA_HOME_17_X64/bin:$PATH" >> $GITHUB_ENV
+        cache: gradle
         
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
