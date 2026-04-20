@@ -18,7 +18,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.zip.GZIPOutputStream
 
 /**
  * Conexión WebSocket profesional para Oracle Cloud Infrastructure.
@@ -26,11 +25,11 @@ import java.util.zip.GZIPOutputStream
  * Features:
  * - Reconexión automática con backoff exponencial
  * - Heartbeat/ping para mantener conexión viva
- * - Compresión gzip opcional para payloads
- * - Buffer circular para frames
+ * - Compresión de frames por JPEG
  * - Manejo robusto de errores y estados
  */
 class ServerConnection {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     // Lazy initialization to avoid creating HttpClient on main thread
     private val client by lazy {
@@ -56,14 +55,12 @@ class ServerConnection {
     private var reconnectAttempts = AtomicInteger(0)
     private var reconnectJob: Job? = null
     private var heartbeatJob: Job? = null
+    private var receiveJob: Job? = null
     
     // Callbacks
     private var onActionReceived: ((Action) -> Unit)? = null
     private var onConnectionChanged: ((Boolean, String) -> Unit)? = null
     private var onError: ((String) -> Unit)? = null
-    
-    // Frame buffer para evitar saturación
-    private val frameBuffer = ArrayDeque<Triple<Bitmap, Float, Float>>(ServerConfig.FRAME_BUFFER_SIZE)
     
     /**
      * Callback para recibir acciones del servidor.
@@ -116,7 +113,8 @@ class ServerConnection {
             startHeartbeat()
             
             // Iniciar loop de recepción
-            CoroutineScope(Dispatchers.IO).launch {
+            receiveJob?.cancel()
+            receiveJob = scope.launch {
                 receiveMessages()
             }
             
@@ -158,7 +156,7 @@ class ServerConnection {
         onConnectionChanged?.invoke(false, "Reconectando en ${delay/1000}s...")
         
         reconnectJob?.cancel()
-        reconnectJob = CoroutineScope(Dispatchers.IO).launch {
+        reconnectJob = scope.launch {
             delay(delay)
             connect()
         }
@@ -169,7 +167,7 @@ class ServerConnection {
      */
     private fun startHeartbeat() {
         heartbeatJob?.cancel()
-        heartbeatJob = CoroutineScope(Dispatchers.IO).launch {
+        heartbeatJob = scope.launch {
             while (isConnected && isActive) {
                 delay(ServerConfig.PING_INTERVAL)
                 try {
@@ -216,6 +214,8 @@ class ServerConnection {
         reconnectJob = null
         heartbeatJob?.cancel()
         heartbeatJob = null
+        receiveJob?.cancel()
+        receiveJob = null
         
         reconnectAttempts.set(ServerConfig.MAX_RECONNECT_ATTEMPTS + 1) // Prevenir auto-reconexión
         
@@ -257,7 +257,9 @@ class ServerConnection {
             val json = Json.encodeToString(FrameMessage.serializer(), message)
             session?.send(json)
             
-            scaledBitmap.recycle()
+            if (scaledBitmap !== bitmap && !scaledBitmap.isRecycled) {
+                scaledBitmap.recycle()
+            }
             
         } catch (e: Exception) {
             Logger.e("Error enviando frame", e)
@@ -272,7 +274,7 @@ class ServerConnection {
      * Recibe mensajes del servidor con manejo robusto de errores.
      */
     private suspend fun receiveMessages() {
-        while (isConnected && CoroutineScope(Dispatchers.IO).isActive) {
+        while (isConnected && currentCoroutineContext().isActive) {
             try {
                 val frame = session?.incoming?.receive()
                 
@@ -335,7 +337,7 @@ class ServerConnection {
      * Convierte la respuesta del servidor a una Action.
      */
     private fun parseAction(response: ServerResponse): Action {
-        val actionType = ActionType.valueOf(response.action ?: "HOLD")
+        val actionType = ActionType.fromName(response.action ?: "HOLD")
         return Action(
             type = actionType,
             targetX = response.coordinates?.x ?: 0f,
@@ -388,7 +390,7 @@ class ServerConnection {
         reconnectAttempts.set(0)
         reconnectJob?.cancel()
         
-        CoroutineScope(Dispatchers.IO).launch {
+        scope.launch {
             disconnect()
             delay(500)
             connect()
@@ -398,13 +400,16 @@ class ServerConnection {
     fun destroy() {
         reconnectJob?.cancel()
         heartbeatJob?.cancel()
+        receiveJob?.cancel()
         
-        CoroutineScope(Dispatchers.IO).launch {
+        scope.launch {
             try {
                 disconnect()
                 client.close()
             } catch (e: Exception) {
                 Logger.e("Error en destroy", e)
+            } finally {
+                scope.cancel()
             }
         }
     }

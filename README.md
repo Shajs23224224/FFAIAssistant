@@ -38,6 +38,27 @@ python3 convert_model.py --input ../checkpoints/final_best.npz
 adb install app/build/outputs/apk/release/app-release-unsigned.apk
 ```
 
+## GitHub Actions release firmada
+
+El repo ya incluye un workflow de release firmado en `.github/workflows/release.yml`.
+
+Configura estos `Secrets and variables > Actions > Repository secrets`:
+
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+Para generar `ANDROID_KEYSTORE_BASE64`:
+
+```bash
+base64 -w 0 tu-keystore.jks
+```
+
+Luego ejecuta el workflow manualmente desde `Actions > Build Signed Release APK`
+o crea un tag tipo `v1.0.0` y haz push. El artifact subido quedará en
+`FFAIAssistant-release-apk`.
+
 ## Uso
 
 1. Instalar APK

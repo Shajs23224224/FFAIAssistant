@@ -85,8 +85,9 @@ class FFAccessibilityService : AccessibilityService() {
         // Inicializar componentes básicos (no dependen de permisos de captura)
         serviceScope.launch(Dispatchers.Default) {
             try {
-                gameConfig = GameConfig(this@FFAccessibilityService)
-                gestureController = GestureController(this@FFAccessibilityService, gameConfig!!)
+                val config = GameConfig(this@FFAccessibilityService)
+                gameConfig = config
+                gestureController = GestureController(this@FFAccessibilityService, config)
                 Logger.i("Componentes de UI inicializados")
             } catch (e: Exception) {
                 Logger.e("Error inicializando componentes UI", e)

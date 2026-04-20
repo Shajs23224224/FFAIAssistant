@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.media.projection.MediaProjectionManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -34,13 +33,14 @@ class MainActivity : AppCompatActivity() {
     
     private var isServiceEnabled = false
     private var isCapturing = false
+    private var receiverRegistered = false
     
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
                 "com.ffai.assistant.STATUS_UPDATE" -> {
                     val status = intent.getStringExtra("status") ?: ""
-                    runOnUiThread { tvStatus.text = "Estado: $status" }
+                    runOnUiThread { tvStatus.text = getString(R.string.status_format, status) }
                 }
             }
         }
@@ -63,14 +63,14 @@ class MainActivity : AppCompatActivity() {
             if (success) {
                 isCapturing = true
                 updateUIState()
-                Toast.makeText(this, "Captura de pantalla iniciada", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.capture_started), Toast.LENGTH_SHORT).show()
             } else {
-                Toast.makeText(this, "Error al iniciar captura. Reintentando...", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.capture_start_error), Toast.LENGTH_LONG).show()
                 isCapturing = false
                 updateUIState()
             }
         } else {
-            Toast.makeText(this, "Permiso denegado. La IA no puede funcionar.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.capture_permission_denied), Toast.LENGTH_LONG).show()
         }
     }
     
@@ -104,7 +104,10 @@ class MainActivity : AppCompatActivity() {
     
     override fun onDestroy() {
         super.onDestroy()
-        unregisterReceiver(statusReceiver)
+        if (receiverRegistered) {
+            unregisterReceiver(statusReceiver)
+            receiverRegistered = false
+        }
     }
     
     private fun initViews() {
@@ -149,7 +152,13 @@ class MainActivity : AppCompatActivity() {
         val filter = IntentFilter().apply {
             addAction("com.ffai.assistant.STATUS_UPDATE")
         }
-        registerReceiver(statusReceiver, filter)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(statusReceiver, filter)
+        }
+        receiverRegistered = true
     }
     
     private fun checkServiceStatus() {
@@ -169,15 +178,15 @@ class MainActivity : AppCompatActivity() {
     
     private fun updateUIState() {
         btnToggleService.text = if (isCapturing) {
-            "Desactivar Servicio"
+            getString(R.string.disable_service)
         } else {
-            "Activar Servicio"
+            getString(R.string.enable_service)
         }
         
         tvStatus.text = when {
-            isCapturing -> "Estado: Activo - Procesando"
-            isServiceEnabled -> "Estado: Servicio listo"
-            else -> "Estado: Servicio no activado"
+            isCapturing -> getString(R.string.status_format, getString(R.string.status_processing))
+            isServiceEnabled -> getString(R.string.status_format, getString(R.string.status_ready))
+            else -> getString(R.string.status_format, getString(R.string.status_disabled))
         }
     }
     
@@ -192,7 +201,7 @@ class MainActivity : AppCompatActivity() {
             FFAccessibilityService.instance?.stopAI()
             isCapturing = false
             updateUIState()
-            Toast.makeText(this, "Servicio detenido", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.service_stopped_message), Toast.LENGTH_SHORT).show()
         } else {
             // Iniciar - solicitar permiso de captura de pantalla
             requestMediaProjection()
@@ -208,14 +217,12 @@ class MainActivity : AppCompatActivity() {
     
     private fun showEnableAccessibilityDialog() {
         AlertDialog.Builder(this)
-            .setTitle("Activar Servicio de Accesibilidad")
-            .setMessage("Para funcionar, la app necesita el permiso de Accesibilidad. " +
-                    "Esto permite detectar cuando Free Fire está abierto e inyectar toques automáticos.\n\n" +
-                    "Ve a Ajustes > Accesibilidad > FF AI Assistant y actívalo.")
-            .setPositiveButton("Ir a Ajustes") { _, _ ->
+            .setTitle(R.string.dialog_accessibility_title)
+            .setMessage(R.string.dialog_accessibility_message)
+            .setPositiveButton(R.string.go_to_settings) { _, _ ->
                 openAccessibilitySettings()
             }
-            .setNegativeButton("Cancelar", null)
+            .setNegativeButton(R.string.cancel, null)
             .show()
     }
     
@@ -230,15 +237,9 @@ class MainActivity : AppCompatActivity() {
         // TODO: Implementar pantalla de calibración
         // Por ahora mostrar instrucciones
         AlertDialog.Builder(this)
-            .setTitle("Calibración")
-            .setMessage("La calibración automática detectará:\n" +
-                    "• Joystick izquierdo (movimiento)\n" +
-                    "• Joystick derecho (mira)\n" +
-                    "• Botón de disparo\n" +
-                    "• Botón de curación\n" +
-                    "• Botón de recarga\n\n" +
-                    "Abre Free Fire y toca cada control cuando se indique.")
-            .setPositiveButton("Entendido", null)
+            .setTitle(R.string.dialog_calibration_title)
+            .setMessage(R.string.dialog_calibration_message)
+            .setPositiveButton(R.string.understood, null)
             .show()
     }
 }

@@ -9,4 +9,21 @@
     <string name="fps_label">FPS:</string>
     <string name="calibrate">Calibrar</string>
     <string name="instructions">1. Activa el servicio de accesibilidad\n2. Abre Free Fire\n3. La IA se activará automáticamente</string>
+    <string name="title_main">FF AI Assistant</string>
+    <string name="status_format">Estado: %1$s</string>
+    <string name="status_processing">Activo - Procesando</string>
+    <string name="status_ready">Servicio listo</string>
+    <string name="status_disabled">Servicio no activado</string>
+    <string name="capture_started">Captura de pantalla iniciada</string>
+    <string name="capture_start_error">Error al iniciar captura. Reintentando...</string>
+    <string name="capture_permission_denied">Permiso denegado. La IA no puede funcionar.</string>
+    <string name="service_stopped_message">Servicio detenido</string>
+    <string name="dialog_accessibility_title">Activar Servicio de Accesibilidad</string>
+    <string name="dialog_accessibility_message">Para funcionar, la app necesita el permiso de Accesibilidad. Esto permite detectar cuando Free Fire está abierto e inyectar toques automáticos.\n\nVe a Ajustes &gt; Accesibilidad &gt; FF AI Assistant y actívalo.</string>
+    <string name="go_to_settings">Ir a Ajustes</string>
+    <string name="cancel">Cancelar</string>
+    <string name="dialog_calibration_title">Calibración</string>
+    <string name="dialog_calibration_message">La calibración automática detectará:\n• Joystick izquierdo (movimiento)\n• Joystick derecho (mira)\n• Botón de disparo\n• Botón de curación\n• Botón de recarga\n\nAbre Free Fire y toca cada control cuando se indique.</string>
+    <string name="understood">Entendido</string>
+    <string name="last_action_placeholder">Última acción: -</string>
 </resources>

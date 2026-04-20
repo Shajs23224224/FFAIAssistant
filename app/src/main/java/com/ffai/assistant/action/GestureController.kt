@@ -5,6 +5,7 @@ import android.accessibilityservice.GestureDescription
 import android.graphics.Path
 import android.graphics.PointF
 import android.os.Build
+import android.os.SystemClock
 import androidx.annotation.RequiresApi
 import com.ffai.assistant.config.Constants
 import com.ffai.assistant.config.GameConfig
@@ -196,7 +197,7 @@ class GestureController(
     private fun humanizedDelay(baseMs: Long) {
         val variance = random.nextInt(Constants.HUMAN_DELAY_VARIANCE_MS * 2 + 1) - 
                        Constants.HUMAN_DELAY_VARIANCE_MS
-        Thread.sleep(baseMs + variance)
+        SystemClock.sleep((baseMs + variance).coerceAtLeast(0))
     }
 
     /**
