@@ -12,12 +12,14 @@ import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.Looper
 import android.util.DisplayMetrics
 import android.view.WindowManager
 import com.ffai.assistant.config.Constants
 import com.ffai.assistant.utils.Logger
 import java.nio.ByteBuffer
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Captura de pantalla usando MediaProjection API.
@@ -28,9 +30,10 @@ class ScreenCapture(private val context: Context) {
     private var mediaProjection: MediaProjection? = null
     private var imageReader: ImageReader? = null
     private var virtualDisplay: VirtualDisplay? = null
-    private var handler: Handler? = null
+    private var backgroundHandler: Handler? = null
+    private var backgroundThread: HandlerThread? = null
     
-    private var isCapturing = false
+    private val isCapturing = AtomicBoolean(false)
     private var onFrameCallback: ((Bitmap) -> Unit)? = null
     
     // Performance tracking
@@ -38,12 +41,18 @@ class ScreenCapture(private val context: Context) {
     private var lastFpsTime = 0L
     private var currentFps = 0
     
+    init {
+        // Crear thread de background para el ImageReader
+        backgroundThread = HandlerThread("ScreenCaptureThread").apply { start() }
+        backgroundHandler = Handler(backgroundThread!!.looper)
+    }
+    
     /**
      * Inicia la captura de pantalla.
      * @return true si se inició correctamente, false si falló
      */
     fun start(resultCode: Int, data: Intent?, onFrame: (Bitmap) -> Unit): Boolean {
-        if (isCapturing) {
+        if (isCapturing.get()) {
             Logger.w("ScreenCapture ya está iniciado")
             return true
         }
@@ -65,15 +74,19 @@ class ScreenCapture(private val context: Context) {
                 return false
             }
 
+            Logger.i("ScreenCapture: Solicitando MediaProjection...")
             mediaProjection = projectionManager.getMediaProjection(resultCode, data)
 
             if (mediaProjection == null) {
                 Logger.e("ScreenCapture: No se pudo obtener MediaProjection")
                 return false
             }
+            
+            Logger.i("ScreenCapture: MediaProjection obtenido correctamente")
 
             // Obtener dimensiones de pantalla primero
             val (screenWidth, screenHeight, density) = getScreenDimensions()
+            Logger.i("ScreenCapture: Dimensiones detectadas ${screenWidth}x${screenHeight}, density=$density")
             
             // Validar que la proyección esté activa
             try {
@@ -85,9 +98,9 @@ class ScreenCapture(private val context: Context) {
                 return false
             }
 
-            isCapturing = true
+            isCapturing.set(true)
             lastFpsTime = System.currentTimeMillis()
-            Logger.i("ScreenCapture iniciado correctamente")
+            Logger.i("ScreenCapture iniciado correctamente - Capturando a ${screenWidth}x${screenHeight}")
             return true
 
         } catch (e: SecurityException) {
@@ -114,13 +127,13 @@ class ScreenCapture(private val context: Context) {
      */
     private fun cleanup() {
         try {
+            Logger.i("ScreenCapture: Limpiando recursos...")
             virtualDisplay?.release()
             virtualDisplay = null
             imageReader?.close()
             imageReader = null
             mediaProjection?.stop()
             mediaProjection = null
-            handler = null
         } catch (e: Exception) {
             Logger.w("ScreenCapture: Error durante cleanup", e)
         }
@@ -130,29 +143,49 @@ class ScreenCapture(private val context: Context) {
      * Detiene la captura.
      */
     fun stop() {
-        if (!isCapturing) return
+        if (!isCapturing.get()) return
 
-        isCapturing = false
+        isCapturing.set(false)
         cleanup()
 
         Logger.i("ScreenCapture detenido. FPS promedio: $currentFps")
     }
     
-    fun isActive(): Boolean = isCapturing
+    fun isActive(): Boolean = isCapturing.get()
+    
+    /**
+     * Libera todos los recursos incluyendo el thread de background.
+     */
+    fun destroy() {
+        stop()
+        backgroundThread?.quitSafely()
+        backgroundThread = null
+        backgroundHandler = null
+    }
     fun getCurrentFps(): Int = currentFps
     
     private fun setupImageReader(width: Int, height: Int) {
-        handler = Handler(Looper.getMainLooper())
+        // Validar dimensiones
+        val validWidth = if (width > 0) width else 1080
+        val validHeight = if (height > 0) height else 1920
+        
+        Logger.i("ScreenCapture: Creando ImageReader ${validWidth}x${validHeight}")
         
         // Usar dimensiones de pantalla reales para evitar problemas de escalado
         imageReader = ImageReader.newInstance(
-            width,
-            height,
+            validWidth,
+            validHeight,
             PixelFormat.RGBA_8888,
-            3  // Máximo 3 buffers pendientes
+            2  // Máximo 2 buffers pendientes (menos latencia)
         )
         
+        if (imageReader == null) {
+            throw IllegalStateException("No se pudo crear ImageReader")
+        }
+        
         imageReader?.setOnImageAvailableListener({ reader ->
+            if (!isCapturing.get()) return@setOnImageAvailableListener
+            
             var image: Image? = null
             try {
                 image = reader.acquireLatestImage()
@@ -168,7 +201,7 @@ class ScreenCapture(private val context: Context) {
                         lastFpsTime = now
                     }
                     
-                    // Ejecutar callback en background
+                    // Ejecutar callback
                     onFrameCallback?.invoke(bitmap)
                 }
             } catch (e: Exception) {
@@ -176,7 +209,9 @@ class ScreenCapture(private val context: Context) {
             } finally {
                 image?.close()
             }
-        }, handler)
+        }, backgroundHandler)
+        
+        Logger.i("ScreenCapture: ImageReader creado correctamente")
     }
     
     private fun getScreenDimensions(): Triple<Int, Int, Int> {
@@ -200,30 +235,55 @@ class ScreenCapture(private val context: Context) {
     private fun createVirtualDisplay(width: Int, height: Int, density: Int) {
         try {
             // Validar dimensiones antes de crear
-            if (width <= 0 || height <= 0 || density <= 0) {
-                Logger.e("ScreenCapture: Dimensiones inválidas (${width}x${height}, density=$density)")
-                throw IllegalStateException("Dimensiones de pantalla inválidas")
+            val validWidth = if (width > 0) width else 1080
+            val validHeight = if (height > 0) height else 1920
+            val validDensity = if (density > 0) density else DisplayMetrics.DENSITY_DEFAULT
+            
+            Logger.i("ScreenCapture: Creando VirtualDisplay ${validWidth}x${validHeight} (density=$validDensity)")
+            
+            // Verificar que tenemos surface
+            val surface = imageReader?.surface
+            if (surface == null) {
+                Logger.e("ScreenCapture: ImageReader surface es null")
+                throw IllegalStateException("ImageReader surface no disponible")
+            }
+            if (!surface.isValid) {
+                Logger.e("ScreenCapture: ImageReader surface no es válido")
+                throw IllegalStateException("ImageReader surface inválido")
             }
 
-            Logger.i("ScreenCapture: Creando VirtualDisplay ${width}x${height} (density=$density)")
+            // Usar FLAG_PUBLIC para mayor compatibilidad
+            val flags = DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or 
+                        DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR
 
             virtualDisplay = mediaProjection?.createVirtualDisplay(
                 "FFAIScreenCapture",
-                width,
-                height,
-                density,
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                imageReader?.surface,
-                null,
-                handler
+                validWidth,
+                validHeight,
+                validDensity,
+                flags,
+                surface,
+                object : VirtualDisplay.Callback() {
+                    override fun onPaused() {
+                        Logger.w("ScreenCapture: VirtualDisplay pausado")
+                    }
+                    override fun onResumed() {
+                        Logger.i("ScreenCapture: VirtualDisplay resumido")
+                    }
+                    override fun onStopped() {
+                        Logger.w("ScreenCapture: VirtualDisplay detenido")
+                        isCapturing.set(false)
+                    }
+                },
+                backgroundHandler
             )
 
             if (virtualDisplay == null) {
-                Logger.e("ScreenCapture: No se pudo crear VirtualDisplay")
+                Logger.e("ScreenCapture: No se pudo crear VirtualDisplay (retornó null)")
                 throw IllegalStateException("VirtualDisplay creation returned null")
             }
 
-            Logger.i("ScreenCapture: VirtualDisplay creado correctamente")
+            Logger.i("ScreenCapture: VirtualDisplay creado correctamente con flags=$flags")
 
         } catch (e: SecurityException) {
             Logger.e("ScreenCapture: SecurityException creando VirtualDisplay", e)
@@ -232,7 +292,7 @@ class ScreenCapture(private val context: Context) {
             Logger.e("ScreenCapture: IllegalStateException creando VirtualDisplay", e)
             throw e
         } catch (e: Exception) {
-            Logger.e("ScreenCapture: Error inesperado creando VirtualDisplay", e)
+            Logger.e("ScreenCapture: Error creando VirtualDisplay: ${e.javaClass.simpleName}: ${e.message}", e)
             throw IllegalStateException("Error creando VirtualDisplay: ${e.message}", e)
         }
     }
