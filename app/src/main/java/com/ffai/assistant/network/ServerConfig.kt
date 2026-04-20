@@ -21,10 +21,10 @@ object ServerConfig {
     
     // URL de ngrok actualizada
     // Formato: wss://tudominio.ngrok-free.dev/ws
-    const val SERVER_WS_URL = "wss://poe-tipping-glitter.ngrok-free.dev/ws"
+    const val SERVER_WS_URL = "wss://poem-tipping-glitter.ngrok-free.dev/ws"
     
     // URL HTTP base
-    const val SERVER_HTTP_URL = "https://poe-tipping-glitter.ngrok-free.dev"
+    const val SERVER_HTTP_URL = "https://poem-tipping-glitter.ngrok-free.dev"
     
     // Token de ngrok (para uso en Colab notebook)
     // NOTA: Este token es solo para referencia, se usa en el notebook de Colab
