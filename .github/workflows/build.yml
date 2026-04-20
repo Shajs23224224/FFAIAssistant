@@ -108,6 +108,7 @@ jobs:
         path: |
           app/build/reports/
           app/build/outputs/logs/
+          kotlin-compile.log
         if-no-files-found: ignore
         retention-days: 7
         
