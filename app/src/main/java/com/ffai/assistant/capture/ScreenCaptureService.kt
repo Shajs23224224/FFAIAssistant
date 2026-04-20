@@ -23,7 +23,6 @@ import android.os.IBinder
 import android.os.Looper
 import android.util.DisplayMetrics
 import android.view.WindowManager
-import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import com.ffai.assistant.MainActivity
 import com.ffai.assistant.R
@@ -81,12 +80,16 @@ class ScreenCaptureService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START_CAPTURE -> {
                 val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, -1)
-                val data = intent.getParcelableExtra<Intent>(EXTRA_DATA)
+                val data = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableExtra(EXTRA_DATA, Intent::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra(EXTRA_DATA)
+                }
                 
                 if (resultCode == -1 || data == null) {
                     Logger.e("ScreenCaptureService: resultCode o data inválidos")
@@ -106,20 +109,13 @@ class ScreenCaptureService : Service() {
         return START_STICKY
     }
 
-    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     private fun startForegroundService() {
         createNotificationChannel()
         
         val notification = buildNotification()
         
-        // Para Android 14+, especificar el tipo de foreground service
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
-            )
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        // Para Android 10+ (API 29+), especificar el tipo de foreground service
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
                 NOTIFICATION_ID,
                 notification,
