@@ -17,6 +17,11 @@ import com.ffai.assistant.utils.Logger
 object ServerConfig {
     
     // ============================================
+    // DEBUGGING
+    // ============================================
+    const val VERBOSE_NETWORK_LOGGING = false
+    
+    // ============================================
     // SOCKETIO CONFIGURATION
     // ============================================
     

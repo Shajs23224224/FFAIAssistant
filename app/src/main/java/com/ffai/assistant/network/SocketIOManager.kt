@@ -382,9 +382,10 @@ class SocketIOManager private constructor() {
             
             val action = Action(
                 type = ActionType.valueOf(actionType),
-                targetX = normalizedX,
-                targetY = normalizedY,
-                intensity = intensity
+                x = x,
+                y = y,
+                duration = duration,
+                confidence = confidence.toFloat()
             )
             
             // Ejecutar en hilo principal para UI
