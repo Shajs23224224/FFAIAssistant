@@ -7,7 +7,7 @@ build/
 
 # Local configuration
 local.properties
-gradle.properties
+# gradle.properties - Enable for CI/CD configuration
 
 # Android Studio
 .idea/
