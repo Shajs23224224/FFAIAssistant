@@ -242,24 +242,22 @@ class ServerConnection {
         lastFrameTime = now
         
         try {
-            // Redimensionar y comprimir frame
-            val scaledBitmap = scaleBitmap(bitmap)
-            val base64Image = bitmapToBase64(scaledBitmap)
+            // TODO: Reimplementar para SocketIO si es necesario
+            // val scaledBitmap = scaleBitmap(bitmap)
+            // val base64Image = bitmapToBase64(scaledBitmap)
             
             val message = FrameMessage(
                 type = "frame",
                 timestamp = now,
                 health = healthRatio,
                 ammo = ammoRatio,
-                imageBase64 = base64Image
+                imageBase64 = ""  // Placeholder - usar BinaryStreamManager para frames
             )
             
             val json = Json.encodeToString(FrameMessage.serializer(), message)
             session?.send(json)
             
-            if (scaledBitmap !== bitmap && !scaledBitmap.isRecycled) {
-                scaledBitmap.recycle()
-            }
+            // scaledBitmap.recycle()
             
         } catch (e: Exception) {
             Logger.e("Error enviando frame", e)

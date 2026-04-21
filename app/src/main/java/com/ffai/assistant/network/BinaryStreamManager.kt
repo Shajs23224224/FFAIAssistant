@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import com.ffai.assistant.utils.Logger
 import com.github.luben.zstd.Zstd
 import kotlinx.coroutines.*
+import kotlin.math.min
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
@@ -276,7 +277,7 @@ class BinaryStreamManager private constructor() {
             return bitmap
         }
         
-        val ratio = minOf(
+        val ratio = kotlin.math.min(
             maxWidth.toFloat() / bitmap.width,
             maxHeight.toFloat() / bitmap.height
         )

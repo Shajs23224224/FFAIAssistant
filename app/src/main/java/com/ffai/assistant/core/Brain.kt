@@ -96,10 +96,10 @@ class Brain(context: Context) {
         
         // Preparar parámetros según acción
         return when (actionType) {
-            ActionType.AIM -> Action.aim(currentState.enemyX, currentState.enemyY)
+            ActionType.AIM -> Action.aim(currentState.enemyX.toInt(), currentState.enemyY.toInt())
             ActionType.SHOOT -> Action.shoot()
             ActionType.MOVE_FORWARD -> Action.moveForward()
-            ActionType.MOVE_BACKWARD -> Action.moveBackward(if (currentState.enemyPresent) 0.8f else 0.5f)
+            ActionType.MOVE_BACKWARD -> Action.moveBackward(if (currentState.enemyPresent) 800 else 500)
             ActionType.MOVE_LEFT -> Action.moveLeft()
             ActionType.MOVE_RIGHT -> Action.moveRight()
             ActionType.HEAL -> if (currentState.needsUrgentHeal()) Action.heal() else Action.hold()

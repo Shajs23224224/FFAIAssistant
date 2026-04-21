@@ -159,7 +159,4 @@ object ServerConfig {
     const val JPEG_QUALITY = 40
     const val USE_GZIP_COMPRESSION = true
     
-    // Resolución mínima viable
-    const val MAX_FRAME_WIDTH = 240
-    const val MAX_FRAME_HEIGHT = 135
 }
