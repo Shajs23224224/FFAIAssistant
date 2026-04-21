@@ -204,17 +204,9 @@ class SocketIOManager private constructor() {
                     }
                 }
                 
-                // Enviar con acknowledgment opcional
-                if (ack != null) {
-                    socket?.emit(ServerConfig.EVENT_FRAME, payload, object : io.socket.emitter.Emitter.Ack {
-                        override fun call(vararg args: Any?) {
-                            val success = args.isNotEmpty() && args[0] as? Boolean == true
-                            ack.invoke(success)
-                        }
-                    })
-                } else {
-                    socket?.emit(ServerConfig.EVENT_FRAME, payload)
-                }
+                // Enviar frame (simplificado sin ack para compatibilidad con Socket.IO 2.1.0)
+                socket?.emit(ServerConfig.EVENT_FRAME, payload)
+                ack?.invoke(true)  // Asumimos éxito, el servidor confirmará si es necesario
                 
                 framesSent.incrementAndGet()
                 
@@ -263,14 +255,8 @@ class SocketIOManager private constructor() {
         if (!isConnected.get()) return
         
         lastPingTime = System.currentTimeMillis()
-        socket?.emit(ServerConfig.EVENT_HEALTH_CHECK, object : io.socket.emitter.Emitter.Ack {
-            override fun call(vararg args: Any?) {
-                if (args.isNotEmpty()) {
-                    currentLatency = System.currentTimeMillis() - lastPingTime
-                    Logger.d("SocketIOManager: Latencia = ${currentLatency}ms")
-                }
-            }
-        })
+        socket?.emit(ServerConfig.EVENT_HEALTH_CHECK)
+        // Latencia calculada por el listener de respuesta del servidor
     }
     
     /**

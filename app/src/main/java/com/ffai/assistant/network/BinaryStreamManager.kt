@@ -316,7 +316,8 @@ class BinaryStreamManager private constructor() {
         scope.launch {
             while (isActive && isProcessing.get()) {
                 try {
-                    val packet = transmitQueue.poll() ?: run {
+                    val packet = transmitQueue.poll()
+                    if (packet == null) {
                         delay(10)
                         continue
                     }

@@ -42,7 +42,7 @@ class EventRouter private constructor() {
     private var processingStartTime = 0L
     
     // Estado
-    private val isActive = kotlinx.coroutines.atomic.AtomicBoolean(true)
+    private val isActive = java.util.concurrent.atomic.AtomicBoolean(true)
     
     enum class EventPriority {
         CRITICAL,  // action, error

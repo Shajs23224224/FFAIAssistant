@@ -38,21 +38,22 @@ enum class ActionType(val index: Int, val cooldownMs: Long) {
  */
 data class Action(
     val type: ActionType,
-    val targetX: Float = 0f,    // Para AIM: dirección X (-1 a 1)
-    val targetY: Float = 0f,    // Para AIM: dirección Y (-1 a 1)
-    val intensity: Float = 1f,  // Intensidad del movimiento (0-1)
+    val x: Int = 0,           // Coordenada X (ej: 960)
+    val y: Int = 0,           // Coordenada Y (ej: 700)
+    val duration: Int = 100,  // Duración en ms
+    val confidence: Float = 1f,  // Confianza 0-1
     val timestamp: Long = System.currentTimeMillis()
 ) {
     val name: String get() = type.name
     val cooldownMs: Long get() = type.cooldownMs
     
     companion object {
-        fun aim(dx: Float, dy: Float) = Action(ActionType.AIM, dx, dy)
+        fun aim(x: Int, y: Int) = Action(ActionType.AIM, x, y)
         fun shoot() = Action(ActionType.SHOOT)
-        fun moveForward(intensity: Float = 1f) = Action(ActionType.MOVE_FORWARD, intensity = intensity)
-        fun moveBackward(intensity: Float = 1f) = Action(ActionType.MOVE_BACKWARD, intensity = intensity)
-        fun moveLeft(intensity: Float = 1f) = Action(ActionType.MOVE_LEFT, intensity = intensity)
-        fun moveRight(intensity: Float = 1f) = Action(ActionType.MOVE_RIGHT, intensity = intensity)
+        fun moveForward(duration: Int = 100) = Action(ActionType.MOVE_FORWARD, duration = duration)
+        fun moveBackward(duration: Int = 100) = Action(ActionType.MOVE_BACKWARD, duration = duration)
+        fun moveLeft(duration: Int = 100) = Action(ActionType.MOVE_LEFT, duration = duration)
+        fun moveRight(duration: Int = 100) = Action(ActionType.MOVE_RIGHT, duration = duration)
         fun heal() = Action(ActionType.HEAL)
         fun reload() = Action(ActionType.RELOAD)
         fun crouch() = Action(ActionType.CROUCH)

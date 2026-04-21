@@ -94,10 +94,10 @@ class ServerConnection {
         isConnecting = true
         
         return try {
-            Logger.i("Conectando a OCI: ${ServerConfig.SERVER_WS_URL}")
+            Logger.i("Conectando a OCI: ${ServerConfig.SERVER_SOCKETIO_URL}")
             onConnectionChanged?.invoke(false, "Conectando...")
             
-            session = client.webSocketSession(ServerConfig.SERVER_WS_URL)
+            session = client.webSocketSession(ServerConfig.SERVER_SOCKETIO_URL)
             isConnected = true
             isConnecting = false
             reconnectAttempts.set(0)
@@ -340,15 +340,18 @@ class ServerConnection {
         val actionType = ActionType.fromName(response.action ?: "HOLD")
         return Action(
             type = actionType,
-            targetX = response.coordinates?.x ?: 0f,
-            targetY = response.coordinates?.y ?: 0f,
-            intensity = 1f
+            x = (response.coordinates?.x ?: 0f).toInt(),
+            y = (response.coordinates?.y ?: 0f).toInt(),
+            duration = 100,
+            confidence = 1f
         )
     }
     
     /**
      * Escala el bitmap para reducir tamaño de transmisión.
+     * NOTA: Función desactivada temporalmente - usar SocketIOManager
      */
+    /*
     private fun scaleBitmap(bitmap: Bitmap): Bitmap {
         val width = bitmap.width
         val height = bitmap.height
@@ -357,7 +360,7 @@ class ServerConnection {
             return bitmap
         }
         
-        val scale = minOf(
+        val scale = kotlin.math.min(
             ServerConfig.MAX_FRAME_WIDTH.toFloat() / width,
             ServerConfig.MAX_FRAME_HEIGHT.toFloat() / height
         )
@@ -367,16 +370,20 @@ class ServerConnection {
         
         return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
     }
+    */
     
     /**
      * Convierte bitmap a Base64 JPEG.
+     * NOTA: Función desactivada temporalmente - usar SocketIOManager
      */
+    /*
     private fun bitmapToBase64(bitmap: Bitmap): String {
         val outputStream = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, ServerConfig.JPEG_QUALITY, outputStream)
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
         val bytes = outputStream.toByteArray()
         return Base64.encodeToString(bytes, Base64.NO_WRAP)
     }
+    */
     
     fun isConnected(): Boolean = isConnected
     
