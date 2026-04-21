@@ -206,10 +206,12 @@ class SocketIOManager private constructor() {
                 
                 // Enviar con acknowledgment opcional
                 if (ack != null) {
-                    socket?.emit(ServerConfig.EVENT_FRAME, payload) { args ->
-                        val success = args.isNotEmpty() && args[0] as? Boolean == true
-                        ack.invoke(success)
-                    }
+                    socket?.emit(ServerConfig.EVENT_FRAME, payload, object : io.socket.emitter.Emitter.Ack {
+                        override fun call(vararg args: Any?) {
+                            val success = args.isNotEmpty() && args[0] as? Boolean == true
+                            ack.invoke(success)
+                        }
+                    })
                 } else {
                     socket?.emit(ServerConfig.EVENT_FRAME, payload)
                 }
@@ -261,12 +263,14 @@ class SocketIOManager private constructor() {
         if (!isConnected.get()) return
         
         lastPingTime = System.currentTimeMillis()
-        socket?.emit(ServerConfig.EVENT_HEALTH_CHECK) { args ->
-            if (args.isNotEmpty()) {
-                currentLatency = System.currentTimeMillis() - lastPingTime
-                Logger.d("SocketIOManager: Latencia = ${currentLatency}ms")
+        socket?.emit(ServerConfig.EVENT_HEALTH_CHECK, object : io.socket.emitter.Emitter.Ack {
+            override fun call(vararg args: Any?) {
+                if (args.isNotEmpty()) {
+                    currentLatency = System.currentTimeMillis() - lastPingTime
+                    Logger.d("SocketIOManager: Latencia = ${currentLatency}ms")
+                }
             }
-        }
+        })
     }
     
     /**
