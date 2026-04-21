@@ -385,12 +385,16 @@ class SocketIOManager private constructor() {
             val duration = data.optInt("duration", 100)
             val confidence = data.optDouble("confidence", 1.0)
             
+            // Mapear coordenadas de pantalla a rango -1..1 para targetX/targetY
+            val normalizedX = (x / 1080f * 2f) - 1f
+            val normalizedY = (y / 1920f * 2f) - 1f
+            val intensity = (duration / 1000f).coerceIn(0f, 1f)
+            
             val action = Action(
                 type = ActionType.valueOf(actionType),
-                x = x,
-                y = y,
-                duration = duration,
-                confidence = confidence.toFloat()
+                targetX = normalizedX,
+                targetY = normalizedY,
+                intensity = intensity
             )
             
             // Ejecutar en hilo principal para UI
