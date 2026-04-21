@@ -119,7 +119,7 @@ class SocketIOManager private constructor() {
                 reconnectionAttempts = ServerConfig.MAX_RECONNECTION_ATTEMPTS
                 reconnectionDelay = ServerConfig.RECONNECTION_DELAY_MS.toInt()
                 reconnectionDelayMax = ServerConfig.RECONNECTION_DELAY_MAX_MS.toInt()
-                timeout = ServerConfig.CONNECTION_TIMEOUT_MS.toInt()
+                timeout = ServerConfig.CONNECTION_TIMEOUT_MS.toLong()
                 forceNew = true
                 transports = arrayOf("websocket", "polling")
             }
@@ -206,7 +206,7 @@ class SocketIOManager private constructor() {
                 
                 // Enviar con acknowledgment opcional
                 if (ack != null) {
-                    socket?.emit(ServerConfig.EVENT_FRAME, payload) { args ->
+                    socket?.emit(ServerConfig.EVENT_FRAME, payload) { args: Array<Any> ->
                         val success = args.isNotEmpty() && args[0] as? Boolean == true
                         ack.invoke(success)
                     }
