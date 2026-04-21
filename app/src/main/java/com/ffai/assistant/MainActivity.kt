@@ -62,9 +62,15 @@ class MainActivity : AppCompatActivity() {
     private val mediaProjectionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-            // Iniciar el Foreground Service de captura con los datos de MediaProjection
-            startScreenCaptureService(result.resultCode, result.data)
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.let { data ->
+                // Iniciar el Foreground Service de captura con los datos de MediaProjection
+                startScreenCaptureService(result.resultCode, data)
+            } ?: run {
+                Toast.makeText(this, getString(R.string.capture_permission_denied), Toast.LENGTH_LONG).show()
+                isCapturing = false
+                updateUIState()
+            }
         } else {
             Toast.makeText(this, getString(R.string.capture_permission_denied), Toast.LENGTH_LONG).show()
             isCapturing = false
