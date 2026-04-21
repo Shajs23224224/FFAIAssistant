@@ -117,8 +117,8 @@ class SocketIOManager private constructor() {
             val options = IO.Options().apply {
                 reconnection = ServerConfig.RECONNECTION_ENABLED
                 reconnectionAttempts = ServerConfig.MAX_RECONNECTION_ATTEMPTS
-                reconnectionDelay = ServerConfig.RECONNECTION_DELAY_MS.toInt()
-                reconnectionDelayMax = ServerConfig.RECONNECTION_DELAY_MAX_MS.toInt()
+                reconnectionDelay = ServerConfig.RECONNECTION_DELAY_MS
+                reconnectionDelayMax = ServerConfig.RECONNECTION_DELAY_MAX_MS
                 timeout = ServerConfig.CONNECTION_TIMEOUT_MS.toLong()
                 forceNew = true
                 transports = arrayOf("websocket", "polling")
@@ -206,7 +206,7 @@ class SocketIOManager private constructor() {
                 
                 // Enviar con acknowledgment opcional
                 if (ack != null) {
-                    socket?.emit(ServerConfig.EVENT_FRAME, payload) { args: Array<Any> ->
+                    socket?.emit(ServerConfig.EVENT_FRAME, payload) { args ->
                         val success = args.isNotEmpty() && args[0] as? Boolean == true
                         ack.invoke(success)
                     }
@@ -261,7 +261,7 @@ class SocketIOManager private constructor() {
         if (!isConnected.get()) return
         
         lastPingTime = System.currentTimeMillis()
-        socket?.emit(ServerConfig.EVENT_HEALTH_CHECK) { args: Array<Any> ->
+        socket?.emit(ServerConfig.EVENT_HEALTH_CHECK) { args ->
             if (args.isNotEmpty()) {
                 currentLatency = System.currentTimeMillis() - lastPingTime
                 Logger.d("SocketIOManager: Latencia = ${currentLatency}ms")
