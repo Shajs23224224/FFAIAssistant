@@ -104,9 +104,18 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     
-    // Ktor WebSocket Client
+    // SocketIO Client (reemplaza Ktor WebSocket)
+    implementation("io.socket:socket.io-client:2.1.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    
+    // Compresión para binary streaming
+    implementation("com.github.luben:zstd-jni:1.5.5-5")
+    
+    // JSON parsing para SocketIO
+    implementation("org.json:json:20231013")
+    
+    // Ktor - solo para HTTP REST (sin WebSocket)
     implementation("io.ktor:ktor-client-okhttp:2.3.7")
-    implementation("io.ktor:ktor-client-websockets:2.3.7")
     implementation("io.ktor:ktor-client-content-negotiation:2.3.7")
     implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
     
