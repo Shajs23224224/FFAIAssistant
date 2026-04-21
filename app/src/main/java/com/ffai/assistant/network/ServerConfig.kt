@@ -16,19 +16,37 @@ package com.ffai.assistant.network
 object ServerConfig {
     
     // ============================================
-    // CONFIGURACIÓN NGROK/COLAB
+    // CONFIGURACIÓN NGROK/COLAB (Runtime Configurable)
     // ============================================
     
-    // URL de ngrok actualizada
-    // Formato: wss://tudominio.ngrok-free.dev/ws
-    const val SERVER_WS_URL = "wss://poem-tipping-glitter.ngrok-free.dev/ws"
+    // URL configurable en runtime - actualizar desde UI
+    var SERVER_URL: String = ""
+        private set
     
-    // URL HTTP base
-    const val SERVER_HTTP_URL = "https://poem-tipping-glitter.ngrok-free.dev"
+    // WebSocket URL completo (se construye desde SERVER_URL)
+    val SERVER_WS_URL: String
+        get() = if (SERVER_URL.isEmpty()) "" else "wss://${SERVER_URL.replace("https://", "").replace("http://", "")}"
     
-    // Token de ngrok (para uso en Colab notebook)
-    // NOTA: Este token es solo para referencia, se usa en el notebook de Colab
-    const val NGROK_TOKEN = "3CU4gdr4ZZBNCaiS2SS0M65EZZH_55e54r4qkAkq8aEu2MQE8"
+    // HTTP URL base
+    val SERVER_HTTP_URL: String
+        get() = if (SERVER_URL.isEmpty()) "" else "https://${SERVER_URL.replace("https://", "").replace("http://", "")}"
+    
+    /**
+     * Configura la URL del servidor (llamar desde MainActivity/UI)
+     */
+    fun configure(url: String) {
+        // Limpiar URL (quitar protocolo y paths)
+        SERVER_URL = url.replace("https://", "")
+            .replace("http://", "")
+            .replace("/ws", "")
+            .replace("/", "")
+        
+        Logger.i("ServerConfig: URL configurada -> $SERVER_URL")
+    }
+    
+    // Token de ngrok - solo referencia, se usa en Colab notebook
+    // NOTA: El token real debe configurarse en Colab, NO aquí
+    const val NGROK_TOKEN_REFERENCE = "OBTENER_EN_NGROK_DOT_COM"
     
     // ============================================
     // TIMING (Optimizado para Colab/latencia variable)
