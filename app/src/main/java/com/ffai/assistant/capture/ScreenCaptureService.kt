@@ -28,7 +28,10 @@ import androidx.core.app.NotificationCompat
 import com.ffai.assistant.MainActivity
 import com.ffai.assistant.R
 import com.ffai.assistant.config.Constants
+import com.ffai.assistant.network.BinaryStreamManager
+import com.ffai.assistant.network.SocketIOManager
 import com.ffai.assistant.utils.Logger
+import kotlinx.coroutines.*
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -77,6 +80,10 @@ class ScreenCaptureService : Service() {
     private var frameCount = 0
     private var lastFpsTime = 0L
     private var currentFps = 0
+    
+    // SocketIO integration
+    private lateinit var binaryStreamManager: BinaryStreamManager
+    private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
@@ -340,6 +347,18 @@ class ScreenCaptureService : Service() {
                     sendBroadcast(Intent("com.ffai.assistant.NEW_FRAME").apply {
                         putExtra("bitmap", bitmap)
                     })
+                    
+                    // Enviar frame al servidor via SocketIO (si está conectado)
+                    coroutineScope.launch {
+                        try {
+                            val socketManager = SocketIOManager.getInstance()
+                            if (socketManager.isConnected()) {
+                                socketManager.emitFrame(bitmap, emptyMap())
+                            }
+                        } catch (e: Exception) {
+                            Logger.e("ScreenCaptureService: Error enviando frame por SocketIO", e)
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 Logger.e("ScreenCaptureService: Error procesando imagen", e)
@@ -461,6 +480,9 @@ class ScreenCaptureService : Service() {
             imageReader = null
             mediaProjection?.stop()
             mediaProjection = null
+            
+            // Cancelar corutinas de SocketIO
+            coroutineScope.cancel()
         } catch (e: Exception) {
             Logger.w("ScreenCaptureService: Error durante cleanup", e)
         }
