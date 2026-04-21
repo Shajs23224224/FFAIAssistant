@@ -46,12 +46,17 @@ class GestureController(
             lastActionTime = now
 
             when (action.type) {
-            ActionType.AIM -> executeAim(action.targetX, action.targetY)
+            ActionType.AIM -> {
+                // Normalizar coordenadas de pantalla a rango -1..1
+                val normX = (action.x / 1080f * 2f) - 1f
+                val normY = (action.y / 1920f * 2f) - 1f
+                executeAim(normX, normY)
+            }
             ActionType.SHOOT -> executeShoot()
-            ActionType.MOVE_FORWARD -> executeMove(0f, -action.intensity)
-            ActionType.MOVE_BACKWARD -> executeMove(0f, action.intensity)
-            ActionType.MOVE_LEFT -> executeMove(-action.intensity, 0f)
-            ActionType.MOVE_RIGHT -> executeMove(action.intensity, 0f)
+            ActionType.MOVE_FORWARD -> executeMove(0f, -action.confidence)
+            ActionType.MOVE_BACKWARD -> executeMove(0f, action.confidence)
+            ActionType.MOVE_LEFT -> executeMove(-action.confidence, 0f)
+            ActionType.MOVE_RIGHT -> executeMove(action.confidence, 0f)
             ActionType.HEAL -> executeTap(gameConfig.buttonHeal, action.cooldownMs)
             ActionType.RELOAD -> executeTap(gameConfig.buttonReload, action.cooldownMs)
             ActionType.CROUCH -> executeTap(gameConfig.buttonCrouch, action.cooldownMs)
