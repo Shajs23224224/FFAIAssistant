@@ -261,7 +261,7 @@ class SocketIOManager private constructor() {
         if (!isConnected.get()) return
         
         lastPingTime = System.currentTimeMillis()
-        socket?.emit(ServerConfig.EVENT_HEALTH_CHECK) { args ->
+        socket?.emit(ServerConfig.EVENT_HEALTH_CHECK) { args: Array<Any> ->
             if (args.isNotEmpty()) {
                 currentLatency = System.currentTimeMillis() - lastPingTime
                 Logger.d("SocketIOManager: Latencia = ${currentLatency}ms")
@@ -328,7 +328,7 @@ class SocketIOManager private constructor() {
             })
             
             // Reconnecting
-            on(Socket.EVENT_RECONNECTING, Emitter.Listener { args ->
+            on("reconnecting", Emitter.Listener { args ->
                 val attempt = args.getOrNull(0) as? Int ?: 0
                 Logger.i("SocketIOManager: Reconectando... intento $attempt")
                 reconnectAttempts.set(attempt)
@@ -336,7 +336,7 @@ class SocketIOManager private constructor() {
             })
             
             // Reconnect
-            on(Socket.EVENT_RECONNECT, Emitter.Listener { args ->
+            on("reconnect", Emitter.Listener { args ->
                 val attempt = args.getOrNull(0) as? Int ?: 0
                 Logger.i("SocketIOManager: Reconectado después de $attempt intentos")
                 isConnected.set(true)
@@ -345,7 +345,7 @@ class SocketIOManager private constructor() {
             })
             
             // Reconnect Failed
-            on(Socket.EVENT_RECONNECT_FAILED, Emitter.Listener {
+            on("reconnect_failed", Emitter.Listener {
                 Logger.e("SocketIOManager: Reconexión fallida después de ${ServerConfig.MAX_RECONNECTION_ATTEMPTS} intentos")
                 isConnecting.set(false)
                 onError?.invoke("Reconexión fallida. Verifica tu conexión y URL del servidor.")
