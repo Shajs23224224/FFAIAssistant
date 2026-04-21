@@ -10,9 +10,13 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
+import android.widget.EditText
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
+import com.ffai.assistant.action.Action
+import com.ffai.assistant.network.ServerConfig
+import com.ffai.assistant.network.SocketIOManager
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -33,9 +37,19 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnCalibrate: Button
     private lateinit var tvLastAction: TextView
     
+    // SocketIO UI elements
+    private lateinit var etServerUrl: EditText
+    private lateinit var btnConnect: Button
+    private lateinit var tvConnectionStatus: TextView
+    private lateinit var tvLatency: TextView
+    private lateinit var tvConnectionFps: TextView
+    
     private var isServiceEnabled = false
     private var isCapturing = false
     private var receiverRegistered = false
+    
+    // SocketIO Manager
+    private lateinit var socketIOManager: SocketIOManager
     
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -149,6 +163,11 @@ class MainActivity : AppCompatActivity() {
             unregisterReceiver(statusReceiver)
             receiverRegistered = false
         }
+        
+        // Cleanup SocketIO
+        if (::socketIOManager.isInitialized) {
+            socketIOManager.disconnect()
+        }
     }
     
     private fun initViews() {
@@ -159,12 +178,27 @@ class MainActivity : AppCompatActivity() {
         btnCalibrate = findViewById(R.id.btnCalibrate)
         tvLastAction = findViewById(R.id.tvLastAction)
         
+        // SocketIO UI
+        etServerUrl = findViewById(R.id.etServerUrl)
+        btnConnect = findViewById(R.id.btnConnect)
+        tvConnectionStatus = findViewById(R.id.tvConnectionStatus)
+        tvLatency = findViewById(R.id.tvLatency)
+        tvConnectionFps = findViewById(R.id.tvFps)
+        
+        // Initialize SocketIO Manager
+        socketIOManager = SocketIOManager.getInstance()
+        setupSocketIOCallbacks()
+        
         btnToggleService.setOnClickListener {
             toggleService()
         }
         
         btnCalibrate.setOnClickListener {
             startCalibration()
+        }
+        
+        btnConnect.setOnClickListener {
+            handleConnectClick()
         }
         
         seekBarFps.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -179,6 +213,54 @@ class MainActivity : AppCompatActivity() {
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
+    }
+    
+    private fun setupSocketIOCallbacks() {
+        socketIOManager.setOnConnectionChanged { isConnected, message ->
+            runOnUiThread {
+                val statusText = if (isConnected) "🟢 $message" else "🔴 $message"
+                tvConnectionStatus.text = statusText
+                btnConnect.text = if (isConnected) "Desconectar" else "Conectar"
+            }
+        }
+        
+        socketIOManager.setOnActionReceived { action ->
+            runOnUiThread {
+                tvLastAction.text = "Última: ${action.type} (${action.x},${action.y})"
+            }
+        }
+        
+        socketIOManager.setOnError { error ->
+            runOnUiThread {
+                Toast.makeText(this, error, Toast.LENGTH_LONG).show()
+            }
+        }
+        
+        socketIOManager.setOnMetricsUpdate { latency, fps, bytesSent ->
+            runOnUiThread {
+                tvLatency.text = "${latency}ms"
+                tvConnectionFps.text = "${fps} FPS"
+            }
+        }
+    }
+    
+    private fun handleConnectClick() {
+        if (socketIOManager.isConnected()) {
+            socketIOManager.disconnect()
+        } else {
+            val url = etServerUrl.text.toString().trim()
+            if (url.isEmpty()) {
+                Toast.makeText(this, "Ingresa la URL del servidor", Toast.LENGTH_SHORT).show()
+                return
+            }
+            
+            ServerConfig.configure(url)
+            val success = socketIOManager.connect()
+            
+            if (!success) {
+                Toast.makeText(this, "Error al iniciar conexión", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
     
     private fun loadSettings() {
