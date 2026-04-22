@@ -83,7 +83,7 @@ class ExperienceBuffer(
     fun sample(batchSize: Int = MIN_BATCH_SIZE): SampledBatch {
         val actualBatchSize = minOf(batchSize, buffer.size)
         if (actualBatchSize < MIN_BATCH_SIZE) {
-            return SampledBatch(emptyList(), emptyList(), 0)
+            return SampledBatch(emptyList(), emptyList(), emptyList())
         }
 
         synchronized(buffer) {

@@ -170,8 +170,9 @@ class TacticalEngine(
 
         // Historial de acciones codificado (23-27)
         // One-hot encoding de últimas 5 acciones (solo las últimas 5 slots)
-        for (i in actionHistory.indices.takeLast(5)) {
-            val actionIdx = actionHistory.elementAt(i).ordinal
+        val recentActions = actionHistory.takeLast(5)
+        for ((i, action) in recentActions.withIndex()) {
+            val actionIdx = action.ordinal
             if (23 + actionIdx < 32) {
                 featureVector[23 + actionIdx] = 1f
             }
@@ -225,7 +226,7 @@ class TacticalEngine(
         return when (type) {
             ActionType.AIM -> Action.aim(params.x, params.y)
             ActionType.MOVE_FORWARD, ActionType.MOVE_BACKWARD,
-            ActionType.MOVE_LEFT, ActionType.MOVE_RIGHT -> Action(type, confidence = params.confidence)
+            ActionType.MOVE_LEFT, ActionType.MOVE_RIGHT -> Action(type, confidence = params.confidence, duration = params.duration.toInt())
             ActionType.SHOOT -> Action.shoot(confidence = params.confidence)
             else -> Action(type)
         }
