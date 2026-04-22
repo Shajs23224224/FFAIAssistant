@@ -227,7 +227,7 @@ class TacticalEngine(
             ActionType.AIM -> Action.aim(params.x, params.y)
             ActionType.MOVE_FORWARD, ActionType.MOVE_BACKWARD,
             ActionType.MOVE_LEFT, ActionType.MOVE_RIGHT -> Action(type, confidence = params.confidence, duration = params.duration.toInt())
-            ActionType.SHOOT -> Action.shoot(confidence = params.confidence)
+            ActionType.SHOOT -> Action(ActionType.SHOOT, confidence = params.confidence)
             else -> Action(type)
         }
     }

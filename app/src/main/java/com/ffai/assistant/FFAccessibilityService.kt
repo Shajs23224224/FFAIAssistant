@@ -192,10 +192,12 @@ class FFAccessibilityService : AccessibilityService() {
         gameConfig = config
 
         // 2. Core Pipeline (v3.0 - Build fix applied)
-        captureManager = CaptureManager().apply {
-            initialize { bitmap, _, _ ->
-                gameLoop?.onFrameAvailable(bitmap)
-            }
+        val screenWidth = gameConfig.screenWidth
+        val screenHeight = gameConfig.screenHeight
+        captureManager = CaptureManager()
+        captureManager?.initialize(screenWidth, screenHeight)
+        captureManager?.onFrameForInference = { bitmap, _ ->
+            gameLoop?.onFrameAvailable(bitmap)
         }
         preprocessor = Preprocessor()
         roiTracker = ROITracker()

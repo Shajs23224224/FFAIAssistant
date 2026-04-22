@@ -78,7 +78,7 @@ class MemoryManager(
 
     private fun startPeriodicUpload() {
         coroutineScope.launch {
-            while (isActive) {
+            while (coroutineScope.isActive) {
                 delay(uploadIntervalMinutes * 60 * 1000)
                 if (pendingExperiences > 0 && !isUploading) {
                     uploadBatch()
