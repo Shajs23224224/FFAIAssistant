@@ -192,8 +192,8 @@ class FFAccessibilityService : AccessibilityService() {
         gameConfig = config
 
         // 2. Core Pipeline (v3.0 - Build fix applied)
-        val screenWidth = gameConfig.screenWidth
-        val screenHeight = gameConfig.screenHeight
+        val screenWidth = config.screenWidth
+        val screenHeight = config.screenHeight
         captureManager = CaptureManager()
         captureManager?.initialize(screenWidth, screenHeight)
         captureManager?.onFrameForInference = { bitmap, _ ->
