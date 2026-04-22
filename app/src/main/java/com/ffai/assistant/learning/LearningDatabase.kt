@@ -219,4 +219,22 @@ class LearningDatabase(context: Context) : SQLiteOpenHelper(
         val totalKills: Int,
         val averageSurvivalTimeMs: Long
     )
+
+    /**
+     * Obtiene el total de experiencias almacenadas.
+     */
+    fun getExperienceCount(): Long {
+        val cursor = readableDatabase.rawQuery("SELECT COUNT(*) FROM experiences", null)
+        return cursor.use {
+            if (it.moveToFirst()) it.getLong(0) else 0L
+        }
+    }
+
+    /**
+     * Cierra la conexión a la base de datos.
+     */
+    fun close() {
+        writableDatabase.close()
+        readableDatabase.close()
+    }
 }

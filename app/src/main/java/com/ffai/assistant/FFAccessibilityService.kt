@@ -13,8 +13,9 @@ import com.ffai.assistant.action.GestureController
 import com.ffai.assistant.capture.ScreenCaptureService
 import com.ffai.assistant.config.Constants
 import com.ffai.assistant.config.GameConfig
-import com.ffai.assistant.core.Brain
-import com.ffai.assistant.core.RemoteBrain
+import com.ffai.assistant.core.*
+import com.ffai.assistant.learning.MemoryManager
+import com.ffai.assistant.perception.PerceptionEngine
 import com.ffai.assistant.utils.Logger
 import kotlinx.coroutines.*
 
@@ -30,14 +31,35 @@ class FFAccessibilityService : AccessibilityService() {
     }
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default + exceptionHandler)
     private var gameLoopJob: Job? = null
-    
+
+    // === NUEVA ARQUITECTURA HÍBRIDA ===
+    // Core pipeline
+    private var captureManager: CaptureManager? = null
+    private var preprocessor: Preprocessor? = null
+    private var roiTracker: ROITracker? = null
+    private var gameLoop: GameLoop? = null
+
+    // Perception
+    private var perceptionEngine: PerceptionEngine? = null
+
+    // Decision
+    private var reflexEngine: ReflexEngine? = null
+    private var decisionEngine: DecisionEngine? = null
+
+    // Action
+    private var gestureController: GestureController? = null
+    private var aimController: AimController? = null
+
+    // Learning & Memory
+    private var memoryManager: MemoryManager? = null
+
+    // Config
+    private var gameConfig: GameConfig? = null
+
+    // Legacy compatibility (mantener para no romper API)
     private var brain: Brain? = null
     private var remoteBrain: RemoteBrain? = null
-    private var gestureController: GestureController? = null
-    private var gameConfig: GameConfig? = null
-    
-    // Modo de operación: true = IA en servidor, false = IA local
-    private val useRemoteBrain = true
+    private val useHybridAI = true  // Usar nueva arquitectura
 
     private var isRunning = false
     private var captureServiceReady = false
@@ -45,7 +67,7 @@ class FFAccessibilityService : AccessibilityService() {
     private var isFullyInitialized = false
     private var activityReady = false
     private var receiverRegistered = false
-    
+
     // Performance tracking
     private var frameCount = 0
     private var lastFpsTime = 0L
@@ -117,15 +139,23 @@ class FFAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         super.onDestroy()
         stopAI()
+
+        // Nueva arquitectura
+        gameLoop?.destroy()
+        captureManager?.destroy()
+        preprocessor?.destroy()
+        perceptionEngine?.destroy()
+        memoryManager?.destroy()
+
+        // Legacy
         brain?.destroy()
         remoteBrain?.destroy()
-        
-        // Desregistrar receiver
+
         if (receiverRegistered) {
             unregisterReceiver(captureReceiver)
             receiverRegistered = false
         }
-        
+
         serviceScope.cancel()
         instance = null
         isServiceRunning = false
@@ -137,40 +167,76 @@ class FFAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         Logger.i("Servicio de accesibilidad conectado")
         isServiceRunning = true
-        
-        // Registrar receiver para escuchar eventos del ScreenCaptureService
+
         registerCaptureReceiver()
 
-        // Inicializar componentes básicos (no dependen de permisos de captura)
+        // Inicializar nueva arquitectura híbrida
         serviceScope.launch(Dispatchers.Default) {
             try {
-                val config = GameConfig(this@FFAccessibilityService)
-                gameConfig = config
-                gestureController = GestureController(this@FFAccessibilityService, config)
-                Logger.i("Componentes de UI inicializados")
+                initHybridArchitecture()
             } catch (e: Exception) {
-                Logger.e("Error inicializando componentes UI", e)
-            }
-        }
-
-        // Inicializar AI en hilo de fondo (no bloquea el servicio)
-        serviceScope.launch(Dispatchers.IO) {
-            try {
-                if (useRemoteBrain) {
-                    Logger.i("Usando IA remota (cloud)")
-                    remoteBrain = RemoteBrain(this@FFAccessibilityService)
-                } else {
-                    Logger.i("Usando IA local")
-                    brain = Brain(this@FFAccessibilityService)
-                }
-                updateStatus("IA lista. Usa la app para iniciar captura.")
-            } catch (e: Exception) {
-                Logger.e("Error inicializando AI", e)
-                updateStatus("Error IA: ${e.message}")
+                Logger.e("Error inicializando arquitectura híbrida", e)
+                updateStatus("Error init: ${e.message}")
             }
         }
 
         updateStatus("Servicio conectado. Abre la app para activar captura.")
+    }
+
+    @RequiresApi(Build.VERSION_CODES.N)
+    private suspend fun initHybridArchitecture() {
+        Logger.i("Inicializando arquitectura híbrida...")
+
+        // 1. Config
+        val config = GameConfig(this@FFAccessibilityService)
+        gameConfig = config
+
+        // 2. Core Pipeline
+        captureManager = CaptureManager().apply {
+            initialize { bitmap ->
+                gameLoop?.onFrameAvailable(bitmap)
+            }
+        }
+        preprocessor = Preprocessor()
+        roiTracker = ROITracker()
+
+        // 3. Perception
+        perceptionEngine = PerceptionEngine(roiTracker!!).apply {
+            initializeModel(this@FFAccessibilityService)
+        }
+
+        // 4. Action
+        gestureController = GestureController(this@FFAccessibilityService, config)
+        aimController = AimController(config, gestureController!!)
+
+        // 5. Decision (Reflexes → Tactical)
+        reflexEngine = ReflexEngine()
+        val policyModel = PolicyModel(this@FFAccessibilityService)  // Puede fallar si no existe
+        val tacticalEngine = TacticalEngine(policyModel)
+        decisionEngine = DecisionEngine(reflexEngine!!, tacticalEngine, aimController!!)
+
+        // 6. Memory
+        memoryManager = MemoryManager(this@FFAccessibilityService, serviceScope)
+
+        // 7. GameLoop (orquestador principal)
+        gameLoop = GameLoop().apply {
+            initialize(
+                captureManager = captureManager!!,
+                preprocessor = preprocessor!!,
+                roiTracker = roiTracker!!,
+                reflexEngine = reflexEngine!!,
+                decisionEngine = decisionEngine!!,
+                gestureController = gestureController!!,
+                gameConfig = config
+            )
+        }
+
+        // Legacy (mantener compatibilidad)
+        brain = Brain(this@FFAccessibilityService)
+        remoteBrain = RemoteBrain(this@FFAccessibilityService)
+
+        Logger.i("Arquitectura híbrida lista: Reflexes+Tactical+Learning")
+        updateStatus("IA Híbrida lista (Reflexes+Tactical+Learning)")
     }
     
     private fun registerCaptureReceiver() {
@@ -262,51 +328,57 @@ class FFAccessibilityService : AccessibilityService() {
     
     private fun startGameLoop() {
         if (isRunning) return
-        
+
         isRunning = true
         updateStatus("IA Activa - Procesando...")
         Logger.i("Game loop iniciado")
-        
+
+        // Iniciar nueva arquitectura
+        if (useHybridAI) {
+            gameLoop?.start()
+        }
+
         lastFpsTime = System.currentTimeMillis()
         frameCount = 0
     }
-    
+
     private fun stopGameLoop() {
         isRunning = false
-        // Notificar fin de episodio (asumimos posición 50 por defecto)
+        gameLoop?.stop()
         brain?.endEpisode(50)
+        remoteBrain?.endEpisode(50)
     }
     
     @RequiresApi(Build.VERSION_CODES.N)
     private fun onFrameCaptured(bitmap: android.graphics.Bitmap) {
         if (!isRunning) return
 
-        // Validar que el servicio esté completamente inicializado
         if (!isFullyInitialized || gestureController == null) {
             Logger.w("onFrameCaptured: Servicio no inicializado completamente")
             bitmap.recycle()
             return
         }
 
+        // En modo híbrido, el GameLoop maneja todo internamente
+        if (useHybridAI) {
+            gameLoop?.onFrameAvailable(bitmap)
+            return
+        }
+
+        // Legacy path (fallback)
         val frameStart = System.currentTimeMillis()
-        
+
         serviceScope.launch(Dispatchers.Default) {
             try {
-                // 1. Brain procesa frame y decide acción
-                val action = if (useRemoteBrain) {
-                    remoteBrain?.processFrame(bitmap)
-                } else {
-                    brain?.processFrame(bitmap)
-                }
-                
-                // 2. Ejecutar acción en UI thread
+                val action = remoteBrain?.processFrame(bitmap)
+                    ?: brain?.processFrame(bitmap)
+
                 if (action != null && action.type != com.ffai.assistant.action.ActionType.HOLD) {
                     withContext(Dispatchers.Main) {
                         gestureController?.execute(action)
                     }
                 }
-                
-                // 3. Stats y debug
+
                 frameCount++
                 val now = System.currentTimeMillis()
                 if (now - lastFpsTime >= 1000) {
@@ -315,13 +387,12 @@ class FFAccessibilityService : AccessibilityService() {
                     lastFpsTime = now
                     Logger.d("FPS: $currentFps")
                 }
-                
-                // 4. Log performance
+
                 val frameTime = System.currentTimeMillis() - frameStart
                 if (frameTime > 100) {
                     Logger.w("Frame lento: ${frameTime}ms")
                 }
-                
+
             } catch (e: Exception) {
                 Logger.e("Error procesando frame", e)
             } finally {
