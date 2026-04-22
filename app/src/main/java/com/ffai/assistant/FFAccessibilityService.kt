@@ -193,7 +193,7 @@ class FFAccessibilityService : AccessibilityService() {
 
         // 2. Core Pipeline
         captureManager = CaptureManager().apply {
-            initialize { bitmap ->
+            initialize { bitmap, _, _ ->
                 gameLoop?.onFrameAvailable(bitmap)
             }
         }

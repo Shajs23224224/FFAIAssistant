@@ -273,15 +273,3 @@ class Preprocessor(
         resizedBitmap = null
     }
 }
-
-/**
- * Features visuales rápidos extraídos sin modelo (para ReflexEngine).
- */
-data class QuickVisualFeatures(
-    val healthRatio: Float = 1f,
-    val ammoRatio: Float = 1f,
-    val enemyPresent: Boolean = false,
-    val enemyScreenX: Int = 0,
-    val enemyScreenY: Int = 0,
-    val enemyConfidence: Float = 0f
-)

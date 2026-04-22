@@ -33,6 +33,7 @@ class MemoryManager(
 
     private var totalExperiences: Long = 0
     private var totalUploads: Long = 0
+    private var totalDownloads: Long = 0
 
     init {
         coroutineScope.launch {

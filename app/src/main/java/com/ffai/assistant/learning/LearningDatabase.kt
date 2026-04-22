@@ -233,7 +233,8 @@ class LearningDatabase(context: Context) : SQLiteOpenHelper(
     /**
      * Cierra la conexión a la base de datos.
      */
-    fun close() {
+    override fun close() {
+        super.close()
         writableDatabase.close()
         readableDatabase.close()
     }
