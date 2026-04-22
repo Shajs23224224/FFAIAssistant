@@ -6,8 +6,7 @@ import com.ffai.assistant.perception.GameState
 import com.ffai.assistant.utils.Logger
 import java.util.concurrent.PriorityBlockingQueue
 import java.util.concurrent.atomic.AtomicLong
-import kotlin.math.pow  // Force rebuild: pow import v2
-import kotlin.math.abs   // Force rebuild: abs import v2
+import kotlin.math.abs
 
 /**
  * ExperienceBuffer - Buffer de experiencias con Prioritized Experience Replay (PER).
@@ -53,7 +52,7 @@ class ExperienceBuffer(
      * Si buffer lleno, elimina la de menor prioridad.
      */
     fun add(experience: Experience, tdError: Float = absTdError(experience)) {
-        val priority = kotlin.math.pow(tdError + epsilon, alpha)
+        val priority = Math.pow((tdError + epsilon).toDouble(), alpha.toDouble()).toFloat()
 
         val pExp = PrioritizedExperience(
             experience = experience,
@@ -118,7 +117,7 @@ class ExperienceBuffer(
             // Calcular importance sampling weights
             val minProb = priorities.minOrNull() ?: epsilon
             val weights = priorities.map { p ->
-                kotlin.math.pow((minProb / p).toDouble(), beta.toDouble()).toFloat()
+                Math.pow((minProb / p).toDouble(), beta.toDouble()).toFloat()
             }
 
             // Incrementar beta gradualmente
@@ -140,10 +139,10 @@ class ExperienceBuffer(
 
             for ((i, idx) in indices.withIndex()) {
                 if (idx in tempList.indices) {
-                    val newPriority = kotlin.math.pow(
-                        kotlin.math.abs(tdErrors[i]) + epsilon,
-                        alpha
-                    )
+                    val newPriority = Math.pow(
+                        (kotlin.math.abs(tdErrors[i]) + epsilon).toDouble(),
+                        alpha.toDouble()
+                    ).toFloat()
                     val updated = tempList[idx].copy(priority = newPriority)
                     tempList[idx] = updated
                 }
