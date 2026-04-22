@@ -61,7 +61,7 @@ jobs:
       run: ./gradlew clean
       
     - name: Compile Kotlin
-      run: ./gradlew compileDebugKotlin --info --stacktrace 2>&1 | tee kotlin-compile.log
+      run: ./gradlew compileDebugKotlin --rerun-tasks --info --stacktrace 2>&1 | tee kotlin-compile.log
       timeout-minutes: 15
       continue-on-error: true
       
