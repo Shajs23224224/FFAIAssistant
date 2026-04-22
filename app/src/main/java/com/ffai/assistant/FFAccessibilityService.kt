@@ -191,7 +191,7 @@ class FFAccessibilityService : AccessibilityService() {
         val config = GameConfig(this@FFAccessibilityService)
         gameConfig = config
 
-        // 2. Core Pipeline
+        // 2. Core Pipeline (v3.0 - Build fix applied)
         captureManager = CaptureManager().apply {
             initialize { bitmap, _, _ ->
                 gameLoop?.onFrameAvailable(bitmap)
