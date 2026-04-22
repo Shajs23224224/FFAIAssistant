@@ -43,6 +43,17 @@ jobs:
         echo "=== App Directory ==="
         ls -la app/ 2>/dev/null || echo "No app directory"
         
+    - name: Stop Gradle Daemon
+      run: ./gradlew --stop || true
+      
+    - name: Verify Source Files
+      run: |
+        echo "=== Verifying FFAccessibilityService.kt line 196 ==="
+        sed -n '195,198p' app/src/main/java/com/ffai/assistant/FFAccessibilityService.kt
+        echo ""
+        echo "=== Verifying ExperienceBuffer.kt imports ==="
+        head -12 app/src/main/java/com/ffai/assistant/learning/ExperienceBuffer.kt | grep "import"
+      
     - name: Clean Build
       run: ./gradlew clean
       
