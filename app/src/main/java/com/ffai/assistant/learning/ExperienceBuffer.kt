@@ -6,8 +6,8 @@ import com.ffai.assistant.perception.GameState
 import com.ffai.assistant.utils.Logger
 import java.util.concurrent.PriorityBlockingQueue
 import java.util.concurrent.atomic.AtomicLong
-import kotlin.math.pow
-import kotlin.math.abs
+import kotlin.math.pow  // Force rebuild: pow import v2
+import kotlin.math.abs   // Force rebuild: abs import v2
 
 /**
  * ExperienceBuffer - Buffer de experiencias con Prioritized Experience Replay (PER).
