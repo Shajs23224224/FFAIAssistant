@@ -1,0 +1,22 @@
+# Dockerfile para compilar FFAIAssistant APK
+# Uso: docker build -f Dockerfile.build -t ffai-builder .
+#      docker run --rm -v $(pwd)/app/build:/output ffai-builder
+
+FROM mingc/android-build-box:latest
+
+WORKDIR /project
+
+# Copiar archivos del proyecto
+COPY . .
+
+# Hacer gradlew ejecutable
+RUN chmod +x gradlew
+
+# Compilar APK Release
+RUN ./gradlew assembleRelease --no-daemon -x test 2>&1 || true
+
+# Verificar que se generó el APK
+RUN ls -la app/build/outputs/apk/release/ 2>/dev/null || echo "APK no generada"
+
+# Copiar APK a directorio de salida
+CMD cp app/build/outputs/apk/release/*.apk /output/ 2>/dev/null && echo "APK copiada a /output" || echo "No se encontró APK"
