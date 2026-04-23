@@ -60,3 +60,8 @@ __pycache__/
 # Modelos grandes (se generan)
 *.tflite
 !app/src/main/assets/model_init.tflite
+tools/jadx.zip
+tools/jadx/lib/jadx-1.5.2-all.jar
+*.zip
+*.tar.gz
+
