@@ -196,7 +196,7 @@ class FFAccessibilityService : AccessibilityService() {
         val screenHeight = config.screenHeight
         captureManager = CaptureManager()
         captureManager?.initialize(screenWidth, screenHeight)
-        captureManager?.onFrameForInference = { bitmap, _ ->
+        captureManager?.onFrameForInference = { bitmap: android.graphics.Bitmap, _: Long ->
             gameLoop?.onFrameAvailable(bitmap)
         }
         preprocessor = Preprocessor()
