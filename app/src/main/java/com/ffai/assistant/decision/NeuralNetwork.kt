@@ -167,11 +167,188 @@ class NeuralNetwork(context: Context) {
         interpreter = null
     }
     
+    /**
+     * Verifica si hay una actualización de modelo disponible en Google Drive.
+     * Compara el manifest remoto con el modelo local.
+     * 
+     * @param driveSyncManager Instancia inicializada de DriveSyncManager
+     * @return Información de la actualización disponible o null
+     */
+    suspend fun checkForRemoteUpdate(driveSyncManager: DriveSyncManager): RemoteModelInfo? {
+        return try {
+            // Listar archivos en Drive
+            val remoteFiles = driveSyncManager.listFiles(DriveSyncManager.FOLDER_MODELS)
+            
+            // Buscar manifest.json
+            val manifestFile = remoteFiles.find { it.name == "manifest.json" }
+            val remoteModel = remoteFiles.find { it.name == Constants.MODEL_CURRENT }
+            
+            if (remoteModel == null) {
+                Logger.w("NeuralNetwork: No hay modelo remoto disponible")
+                return null
+            }
+            
+            // Comparar tamaños (simplificado - en producción usar hash o timestamp)
+            val localSize = if (modelFile.exists()) modelFile.length() else 0
+            val remoteSize = remoteModel.size
+            
+            if (remoteSize != localSize) {
+                Logger.i("NeuralNetwork: Actualización disponible - Local: $localSize bytes, Remoto: $remoteSize bytes")
+                RemoteModelInfo(
+                    fileId = remoteModel.id,
+                    fileName = remoteModel.name,
+                    size = remoteSize,
+                    modifiedTime = remoteModel.modifiedTime,
+                    isNewer = remoteSize > localSize // Asumiendo que mayor tamaño = más actualizado
+                )
+            } else {
+                null // Modelo está actualizado
+            }
+        } catch (e: Exception) {
+            Logger.e("NeuralNetwork: Error verificando actualización", e)
+            null
+        }
+    }
+    
+    /**
+     * Descarga y carga un modelo desde Google Drive.
+     * 
+     * @param modelInfo Información del modelo remoto
+     * @param driveSyncManager Instancia inicializada de DriveSyncManager
+     * @param downloadProgress Callback de progreso (bytes descargados, total)
+     * @return true si la descarga y carga fueron exitosas
+     */
+    suspend fun downloadAndLoadRemoteModel(
+        modelInfo: RemoteModelInfo,
+        driveSyncManager: DriveSyncManager,
+        downloadProgress: ((downloaded: Long, total: Long) -> Unit)? = null
+    ): Boolean {
+        return try {
+            // Backup del modelo actual antes de reemplazar
+            if (modelFile.exists() && modelFile.length() > 0) {
+                backup()
+            }
+            
+            // Descargar modelo
+            val success = driveSyncManager.downloadFile(modelInfo.fileId, modelFile)
+            
+            if (success && modelFile.exists() && modelFile.length() > 0) {
+                // Cargar nuevo modelo
+                close() // Cerrar modelo anterior
+                loadModel()
+                
+                if (interpreter != null) {
+                    Logger.i("NeuralNetwork: Modelo remoto descargado y cargado exitosamente")
+                    true
+                } else {
+                    // Fallback: restaurar backup
+                    Logger.e("NeuralNetwork: Error cargando modelo remoto, restaurando backup")
+                    restore()
+                    false
+                }
+            } else {
+                Logger.e("NeuralNetwork: Descarga fallida o archivo corrupto")
+                // Intentar restaurar backup si existe
+                if (File(modelFile.parent, Constants.MODEL_BACKUP).exists()) {
+                    restore()
+                }
+                false
+            }
+        } catch (e: Exception) {
+            Logger.e("NeuralNetwork: Error descargando modelo remoto", e)
+            false
+        }
+    }
+    
+    /**
+     * Carga un modelo descargado desde archivo temporal.
+     * Útil cuando el modelo se descargó mediante ModelDownloader.
+     * 
+     * @param downloadedFile Archivo descargado (usualmente en cache)
+     * @return true si se cargó correctamente
+     */
+    fun loadDownloadedModel(downloadedFile: File): Boolean {
+        return try {
+            // Validar archivo
+            if (!downloadedFile.exists() || downloadedFile.length() < 1024 * 1024) {
+                Logger.e("NeuralNetwork: Archivo descargado inválido o muy pequeño")
+                return false
+            }
+            
+            // Backup del modelo actual
+            if (modelFile.exists() && modelFile.length() > 0) {
+                backup()
+            }
+            
+            // Copiar a ubicación final
+            downloadedFile.copyTo(modelFile, overwrite = true)
+            
+            // Cargar
+            close()
+            loadModel()
+            
+            val success = interpreter != null
+            if (success) {
+                Logger.i("NeuralNetwork: Modelo descargado cargado exitosamente")
+            } else {
+                Logger.e("NeuralNetwork: Error cargando modelo descargado, restaurando backup")
+                restore()
+            }
+            
+            success
+        } catch (e: Exception) {
+            Logger.e("NeuralNetwork: Error cargando modelo descargado", e)
+            false
+        }
+    }
+    
+    /**
+     * Obtiene información del modelo actual.
+     */
+    fun getModelInfo(): ModelInfo {
+        return ModelInfo(
+            filePath = modelFile.absolutePath,
+            size = if (modelFile.exists()) modelFile.length() else 0,
+            isLoaded = interpreter != null,
+            lastModified = if (modelFile.exists()) modelFile.lastModified() else 0
+        )
+    }
+    
     companion object {
         fun isModelAvailable(context: Context): Boolean {
             val modelDir = File(context.getExternalFilesDir(null), Constants.MODEL_DIR)
             val modelFile = File(modelDir, Constants.MODEL_CURRENT)
             return modelFile.exists() && modelFile.length() > 0
         }
+        
+        /**
+         * Obtiene el tamaño del modelo actual.
+         */
+        fun getCurrentModelSize(context: Context): Long {
+            val modelDir = File(context.getExternalFilesDir(null), Constants.MODEL_DIR)
+            val modelFile = File(modelDir, Constants.MODEL_CURRENT)
+            return if (modelFile.exists()) modelFile.length() else 0
+        }
     }
 }
+
+/**
+ * Información de un modelo remoto en Google Drive.
+ */
+data class RemoteModelInfo(
+    val fileId: String,
+    val fileName: String,
+    val size: Long,
+    val modifiedTime: Long,
+    val isNewer: Boolean
+)
+
+/**
+ * Información del modelo local.
+ */
+data class ModelInfo(
+    val filePath: String,
+    val size: Long,
+    val isLoaded: Boolean,
+    val lastModified: Long
+)

@@ -14,6 +14,8 @@ import com.ffai.assistant.capture.ScreenCaptureService
 import com.ffai.assistant.config.Constants
 import com.ffai.assistant.config.GameConfig
 import com.ffai.assistant.core.*
+import com.ffai.assistant.core.AdvancedAICore
+import com.ffai.assistant.model.ActionType
 import com.ffai.assistant.learning.MemoryManager
 import com.ffai.assistant.perception.PerceptionEngine
 import com.ffai.assistant.utils.Logger
@@ -60,6 +62,10 @@ class FFAccessibilityService : AccessibilityService() {
     private var brain: Brain? = null
     private var remoteBrain: RemoteBrain? = null
     private val useHybridAI = true  // Usar nueva arquitectura
+    
+    // === IA AVANZADA ENSEMBLE (FASES 1-9) ===
+    private var advancedAICore: AdvancedAICore? = null
+    private val useAdvancedAI = true  // Usar ensemble de 8 modelos +120MB
 
     private var isRunning = false
     private var captureServiceReady = false
@@ -146,6 +152,9 @@ class FFAccessibilityService : AccessibilityService() {
         preprocessor?.destroy()
         perceptionEngine?.destroy()
         memoryManager?.destroy()
+        
+        // IA Avanzada Ensemble
+        advancedAICore?.release()
 
         // Legacy
         brain?.destroy()
@@ -239,6 +248,24 @@ class FFAccessibilityService : AccessibilityService() {
 
         Logger.i("Arquitectura híbrida lista: Reflexes+Tactical+Learning")
         updateStatus("IA Híbrida lista (Reflexes+Tactical+Learning)")
+        
+        // 8. IA Avanzada Ensemble (inicialización async)
+        if (useAdvancedAI) {
+            launch {
+                try {
+                    advancedAICore = AdvancedAICore(
+                        context = this@FFAccessibilityService,
+                        service = this@FFAccessibilityService,
+                        gameConfig = config
+                    )
+                    advancedAICore?.initialize()
+                    Logger.i("IA Avanzada Ensemble inicializada (8 modelos, +120MB)")
+                    updateStatus("IA Ensemble lista (8 modelos, 3 modos razonamiento)")
+                } catch (e: Exception) {
+                    Logger.e("Error inicializando IA Avanzada", e)
+                }
+            }
+        }
     }
     
     private fun registerCaptureReceiver() {
@@ -339,6 +366,13 @@ class FFAccessibilityService : AccessibilityService() {
         if (useHybridAI) {
             gameLoop?.start()
         }
+        
+        // Iniciar IA Avanzada Ensemble
+        if (useAdvancedAI) {
+            serviceScope.launch {
+                advancedAICore?.start()
+            }
+        }
 
         lastFpsTime = System.currentTimeMillis()
         frameCount = 0
@@ -347,6 +381,7 @@ class FFAccessibilityService : AccessibilityService() {
     private fun stopGameLoop() {
         isRunning = false
         gameLoop?.stop()
+        advancedAICore?.stop()
         brain?.endEpisode(50)
         remoteBrain?.endEpisode(50)
     }
