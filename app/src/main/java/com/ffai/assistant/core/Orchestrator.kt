@@ -370,56 +370,6 @@ class DecisionPipeline(
 }
 
 // ============================================
-// MOTORES DE DECISIÓN
-// ============================================
-
-class ReflexEngine {
-    
-    fun decide(context: SituationContext): Decision? {
-        // Decisiones de supervivencia inmediata
-        // Ej: curarse si vida crítica, cubrirse si bajo fuego
-        
-        return when {
-            context.healthLevel == HealthLevel.CRITICAL -> {
-                Decision(Action.heal(), Priority.CRITICAL)
-            }
-            context.enemyCount > 0 && context.healthLevel <= HealthLevel.LOW -> {
-                Decision(Action.crouch(), Priority.HIGH)
-            }
-            else -> null
-        }
-    }
-}
-
-class TacticalEngine {
-    
-    fun decide(context: SituationContext): Decision? {
-        // Decisiones tácticas basadas en situación
-        // Ej: apuntar si hay enemigo, moverse si es seguro
-        
-        return when {
-            context.enemyCount > 0 -> {
-                Decision(Action.aim(0, 0), Priority.MEDIUM)
-            }
-            context.zoneStatus == ZoneStatus.EDGE -> {
-                Decision(Action.moveForward(), Priority.LOW)
-            }
-            else -> null
-        }
-    }
-}
-
-class StrategicEngine {
-    
-    fun decide(context: SituationContext): Decision? {
-        // Decisiones estratégicas de alto nivel
-        // Solo se ejecutan periódicamente (no cada frame)
-        
-        return null // Placeholder
-    }
-}
-
-// ============================================
 // MÓDULOS
 // ============================================
 
