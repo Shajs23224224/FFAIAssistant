@@ -15,25 +15,51 @@ object Logger {
             Log.d(Constants.DEBUG_TAG, message)
         }
     }
-    
+
+    fun d(tag: String, message: String) {
+        if (debugMode) {
+            Log.d(tag, message)
+        }
+    }
+
     fun i(message: String) {
         Log.i(Constants.DEBUG_TAG, message)
     }
-    
+
+    fun i(tag: String, message: String) {
+        Log.i(tag, message)
+    }
+
     fun w(message: String) {
         Log.w(Constants.DEBUG_TAG, message)
+    }
+
+    fun w(tag: String, message: String) {
+        Log.w(tag, message)
     }
 
     fun w(message: String, throwable: Throwable) {
         Log.w(Constants.DEBUG_TAG, message, throwable)
     }
 
+    fun w(tag: String, message: String, throwable: Throwable) {
+        Log.w(tag, message, throwable)
+    }
+
     fun e(message: String, throwable: Throwable? = null) {
         Log.e(Constants.DEBUG_TAG, message, throwable)
     }
-    
+
+    fun e(tag: String, message: String, throwable: Throwable? = null) {
+        Log.e(tag, message, throwable)
+    }
+
     fun wtf(message: String, throwable: Throwable? = null) {
         Log.wtf(Constants.DEBUG_TAG, message, throwable)
+    }
+
+    fun wtf(tag: String, message: String, throwable: Throwable? = null) {
+        Log.wtf(tag, message, throwable)
     }
     
     /**

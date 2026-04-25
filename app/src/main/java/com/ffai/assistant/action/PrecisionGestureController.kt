@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.SystemClock
 import androidx.annotation.RequiresApi
 import com.ffai.assistant.config.GameConfig
+import com.ffai.assistant.perception.WeaponType
 import com.ffai.assistant.utils.Logger
 
 /**
@@ -234,7 +235,7 @@ class PrecisionGestureController(
      */
     fun startRecoilCompensation(weaponType: WeaponType) {
         recoilPattern = when (weaponType) {
-            WeaponType.AR -> RecoilPattern.AR_PATTERN
+            WeaponType.ASSAULT_RIFLE -> RecoilPattern.AR_PATTERN
             WeaponType.SMG -> RecoilPattern.SMG_PATTERN
             WeaponType.LMG -> RecoilPattern.LMG_PATTERN
             else -> RecoilPattern.UNKNOWN
@@ -350,7 +351,7 @@ class PrecisionGestureController(
      */
     fun burstFire(burstSize: Int = 3, burstDelayMs: Long = 100) {
         Thread {
-            startRecoilCompensation(WeaponType.AR)
+            startRecoilCompensation(WeaponType.ASSAULT_RIFLE)
             
             for (i in 0 until burstSize) {
                 executeGestureAction(GestureAction.Shoot(50))
@@ -459,10 +460,6 @@ sealed class GestureAction {
     data class Shoot(val durationMs: Long) : GestureAction()
     data class Aim(val x: Float, val y: Float, val durationMs: Long) : GestureAction()
     data class Swipe(val startX: Float, val startY: Float, val endX: Float, val endY: Float, val durationMs: Long) : GestureAction()
-}
-
-enum class WeaponType {
-    AR, SMG, SNIPER, SHOTGUN, LMG, PISTOL, UNKNOWN
 }
 
 enum class RecoilPattern {

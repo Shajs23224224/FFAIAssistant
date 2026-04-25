@@ -18,7 +18,7 @@ data class CombatOutput(
     val enemies: List<EnemyDetection>,
     val aimTarget: AimTarget?,
     val suggestedAction: ActionSuggestion?,
-    val confidence: Float,
+    override val confidence: Float,
     val threatLevel: ThreatLevel
 ) : ModelOutput(confidence)
 
@@ -72,7 +72,7 @@ data class TacticalOutput(
     val situation: TacticalSituation,
     val suggestedAction: ActionSuggestion?,
     val alternativeActions: List<ActionSuggestion>,
-    val confidence: Float,
+    override val confidence: Float,
     val requiresStrategicUpdate: Boolean,
     val recommendedStance: Stance,
     val lootPriority: List<LootPriority>,
@@ -133,7 +133,7 @@ data class StrategyOutput(
     val rotationTiming: Int?, // segundos hasta rotar
     val riskAssessment: RiskAssessment,
     val lootRoute: List<Pair<Float, Float>>?,
-    val confidence: Float
+    override val confidence: Float
 ) : ModelOutput(confidence)
 
 data class RiskAssessment(
@@ -159,7 +159,7 @@ data class VisionOutput(
     val terrain: TerrainAnalysis,
     val visibility: VisibilityAnalysis,
     val suggestedAction: ActionSuggestion?,
-    val confidence: Float
+    override val confidence: Float
 ) : ModelOutput(confidence)
 
 data class DetectedObject(
@@ -215,7 +215,7 @@ data class UIOutput(
     val menuType: MenuType?,
     val killFeed: List<KillEvent>,
     val gameState: GameState,
-    val confidence: Float
+    override val confidence: Float
 ) : ModelOutput(confidence)
 
 data class HPInfo(
@@ -277,7 +277,7 @@ data class MapOutput(
     val nextSafeZone: ZonePrediction?,
     val markedLocations: List<MarkedLocation>,
     val teammatePositions: List<Pair<Float, Float>>,
-    val confidence: Float
+    override val confidence: Float
 ) : ModelOutput(confidence)
 
 data class Zone(
@@ -317,7 +317,7 @@ data class RecoilOutput(
     val compensationX: Float,
     val compensationY: Float,
     val burstRecommendation: Int, // tamaño de ráfaga recomendada
-    val confidence: Float
+    override val confidence: Float
 ) : ModelOutput(confidence)
 
 data class RecoilPattern(
@@ -337,7 +337,7 @@ data class ConfidenceOutput(
     val confidenceScore: Float, // 0-1
     val uncertaintyFactors: List<UncertaintyFactor>,
     val recommendation: String?, // qué hacer si confianza baja
-    val confidence: Float
+    override val confidence: Float
 ) : ModelOutput(confidence)
 
 data class UncertaintyFactor(

@@ -563,11 +563,11 @@ data class SituationFeatures(
 data class DecisionOutcome(
     val decision: String,
     val situation: SituationFeatures,
-    val result: DecisionResult,
+    val result: DecisionOutcomeResult,
     val timestamp: Long
 )
 
-data class DecisionResult(
+data class DecisionOutcomeResult(
     val survived: Boolean,
     val gotKill: Boolean,
     val survivalTimeSeconds: Float,

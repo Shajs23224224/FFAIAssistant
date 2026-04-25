@@ -110,6 +110,7 @@ enum class WeaponType {
     PISTOL,
     SMG,
     ASSAULT_RIFLE,
+    LMG,
     SNIPER,
     SHOTGUN,
     MELEE,

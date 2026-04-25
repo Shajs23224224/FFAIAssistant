@@ -509,7 +509,7 @@ data class WeaponInfo(
 ) {
     companion object {
         val UNKNOWN = WeaponInfo(WeaponType.UNKNOWN, "Unknown", 0.5f, 20f, 5f)
-        val AR = WeaponInfo(WeaponType.AR, "Assault Rifle", 0.4f, 35f, 10f)
+        val AR = WeaponInfo(WeaponType.ASSAULT_RIFLE, "Assault Rifle", 0.4f, 35f, 10f)
         val SMG = WeaponInfo(WeaponType.SMG, "SMG", 0.25f, 25f, 15f)
         val SNIPER = WeaponInfo(WeaponType.SNIPER, "Sniper", 0.8f, 100f, 1f)
         val SHOTGUN = WeaponInfo(WeaponType.SHOTGUN, "Shotgun", 0.15f, 150f, 2f)
@@ -533,7 +533,7 @@ class Inventory {
     
     fun getTotalAmmoForWeapon(weapon: WeaponInfo): Int {
         return when (weapon.type) {
-            WeaponType.AR -> ammoAR
+            WeaponType.ASSAULT_RIFLE -> ammoAR
             WeaponType.SMG -> ammoSMG
             WeaponType.SNIPER -> ammoSniper
             WeaponType.SHOTGUN -> ammoShotgun
@@ -570,8 +570,4 @@ enum class TacticalPriority {
     HUNT,         // Buscar enemigos
     LOOT,         // Saquear
     EXPLORE       // Explorar/moverse
-}
-
-enum class WeaponType {
-    UNKNOWN, AR, SMG, SNIPER, SHOTGUN, PISTOL, MELEE
 }

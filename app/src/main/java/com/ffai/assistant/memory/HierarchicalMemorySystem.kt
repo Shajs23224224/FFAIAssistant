@@ -463,11 +463,11 @@ class CombatSession {
 data class DecisionRecord(
     val action: Action,
     val situation: SituationContext,
-    val result: DecisionResult,
+    val result: MemoryDecisionResult,
     val timestamp: Long = System.currentTimeMillis()
 )
 
-enum class DecisionResult { SUCCESS, PARTIAL, FAILURE, UNKNOWN }
+enum class MemoryDecisionResult { SUCCESS, PARTIAL, FAILURE, UNKNOWN }
 
 data class CoverEvent(
     val position: Position,
