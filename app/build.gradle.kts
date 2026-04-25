@@ -113,34 +113,8 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     
-    // SocketIO Client (reemplaza Ktor WebSocket)
-    implementation("io.socket:socket.io-client:2.1.0")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    
-    // Compresión para binary streaming
-    implementation("com.github.luben:zstd-jni:1.5.5-5")
-    
-    // JSON parsing para SocketIO
-    implementation("org.json:json:20231013")
-    
-    // Ktor - solo para HTTP REST (sin WebSocket)
-    implementation("io.ktor:ktor-client-okhttp:2.3.7")
-    implementation("io.ktor:ktor-client-content-negotiation:2.3.7")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
-    
     // JSON Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
-    
-    /* FASE 1: CLOUD FEATURES DISABLED - IA 100% LOCAL
-    // Google Sign-In & Drive API
-    implementation("com.google.android.gms:play-services-auth:21.0.0")
-    implementation("com.google.http-client:google-http-client-gson:1.43.3")
-    implementation("com.google.apis:google-api-services-drive:v3-rev20240123-2.0.0")
-    implementation("com.google.api-client:google-api-client-android:2.2.0")
-    
-    // Background sync
-    implementation("androidx.work:work-runtime-ktx:2.9.0")
-    */
     
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

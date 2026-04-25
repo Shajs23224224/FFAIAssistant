@@ -60,7 +60,6 @@ class FFAccessibilityService : AccessibilityService() {
 
     // Legacy compatibility (mantener para no romper API)
     private var brain: Brain? = null
-    private var remoteBrain: RemoteBrain? = null
     private val useHybridAI = true  // Usar nueva arquitectura
     
     // === IA AVANZADA ENSEMBLE (FASES 1-9) ===
@@ -158,7 +157,6 @@ class FFAccessibilityService : AccessibilityService() {
 
         // Legacy
         brain?.destroy()
-        remoteBrain?.destroy()
 
         if (receiverRegistered) {
             unregisterReceiver(captureReceiver)
@@ -244,7 +242,6 @@ class FFAccessibilityService : AccessibilityService() {
 
         // Legacy (mantener compatibilidad)
         brain = Brain(this@FFAccessibilityService)
-        remoteBrain = RemoteBrain(this@FFAccessibilityService)
 
         Logger.i("Arquitectura híbrida lista: Reflexes+Tactical+Learning")
         updateStatus("IA Híbrida lista (Reflexes+Tactical+Learning)")
@@ -383,7 +380,6 @@ class FFAccessibilityService : AccessibilityService() {
         gameLoop?.stop()
         advancedAICore?.stop()
         brain?.endEpisode(50)
-        remoteBrain?.endEpisode(50)
     }
     
     @RequiresApi(Build.VERSION_CODES.N)
@@ -407,8 +403,7 @@ class FFAccessibilityService : AccessibilityService() {
 
         serviceScope.launch(Dispatchers.Default) {
             try {
-                val action = remoteBrain?.processFrame(bitmap)
-                    ?: brain?.processFrame(bitmap)
+                val action = brain?.processFrame(bitmap)
 
                 if (action != null && action.type != com.ffai.assistant.action.ActionType.HOLD) {
                     withContext(Dispatchers.Main) {
@@ -440,7 +435,6 @@ class FFAccessibilityService : AccessibilityService() {
     
     fun endEpisode(finalPlacement: Int) {
         brain?.endEpisode(finalPlacement)
-        remoteBrain?.endEpisode(finalPlacement)
     }
     
     private fun isFreeFirePackage(packageName: String): Boolean {

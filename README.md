@@ -1,20 +1,26 @@
-# FF AI Assistant - APK Separado
+# FF AI Assistant - APK Offline
 
-App Android que usa Accessibility Service para jugar Free Fire automáticamente.
+App Android 100% offline que usa Accessibility Service para jugar Free Fire automáticamente. Sin conexión a internet, sin cloud, sin servidores externos.
 
 ## Arquitectura
 
 ```
-FF AI Assistant (APK)
+FF AI Assistant (APK) - 100% Local
 ├── Accessibility Service (captura de pantalla + toques)
-├── NeuralNetwork (TensorFlow Lite)
-├── FeatureExtractor (OpenCV)
+├── NeuralNetwork (TensorFlow Lite - local)
+├── FeatureExtractor (OpenCV - local)
 └── ActionController (inyección de gestos)
          │
          │ MediaProjection
          ▼
 Free Fire APK (sin modificar)
 ```
+
+**Características:**
+- IA completamente local (TensorFlow Lite)
+- Sin conexión a internet requerida
+- Sin Google Drive / Colab / Cloud
+- Funciona 100% offline
 
 ## Requisitos
 

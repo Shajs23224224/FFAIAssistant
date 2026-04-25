@@ -3,6 +3,7 @@ name: Build Signed Release APK
 on:
   workflow_dispatch:
   push:
+    branches: [ build ]
     tags:
       - "v*"
 

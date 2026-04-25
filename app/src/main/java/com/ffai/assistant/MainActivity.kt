@@ -25,20 +25,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.ffai.assistant.action.Action
 import com.ffai.assistant.capture.ScreenCaptureService
-// CLOUD FEATURES DISABLED - FASE 1: IA 100% LOCAL
-// import com.ffai.assistant.cloud.BackupScheduler
-// import com.ffai.assistant.cloud.DownloadProgress
-// import com.ffai.assistant.cloud.GoogleAccount
-// import com.ffai.assistant.cloud.GoogleAuthManager
-// import com.ffai.assistant.cloud.ModelDownloader
 import com.ffai.assistant.decision.NeuralNetwork
-import com.ffai.assistant.network.ServerConfig
-import com.ffai.assistant.network.SocketIOManager
 import com.ffai.assistant.utils.Config
 import com.ffai.assistant.utils.Logger
-// CLOUD FEATURES DISABLED
-// import com.google.android.gms.common.SignInButton
-// import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -54,38 +43,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnCalibrate: Button
     private lateinit var tvLastAction: TextView
     
-    // SocketIO UI elements
-    private lateinit var etServerUrl: EditText
-    private lateinit var btnConnect: Button
-    private lateinit var tvConnectionStatus: TextView
-    private lateinit var tvLatency: TextView
-    private lateinit var tvConnectionFps: TextView
-    
     private var isServiceEnabled = false
     private var isCapturing = false
     private var receiverRegistered = false
-    
-    // SocketIO Manager
-    private lateinit var socketIOManager: SocketIOManager
-    
-    /* CLOUD FEATURES DISABLED - FASE 1: IA 100% LOCAL
-    // Google Sign-In & Drive
-    private lateinit var googleAuthManager: GoogleAuthManager
-    private lateinit var modelDownloader: ModelDownloader
-    private var currentGoogleAccount: GoogleAccount? = null
-    
-    // UI de Google Sign-In
-    private lateinit var signInButton: SignInButton
-    private lateinit var btnSignOut: Button
-    private lateinit var tvGoogleStatus: TextView
-    private lateinit var tvUserName: TextView
-    private lateinit var ivUserPhoto: ImageView
-    private lateinit var layoutGoogleProfile: LinearLayout
-    private lateinit var progressBarModelDownload: ProgressBar
-    private lateinit var tvModelDownloadStatus: TextView
-    private lateinit var btnCheckModelUpdate: Button
-    private lateinit var btnSyncNow: Button
-    */
     
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -169,38 +129,13 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         
-        /* CLOUD FEATURES DISABLED - FASE 1: IA 100% LOCAL
-        // Inicializar Google Auth
-        googleAuthManager = GoogleAuthManager(this)
-        modelDownloader = ModelDownloader(this)
-        */
-        
         initViews()
         loadSettings()
         registerReceivers()
         
-        /* CLOUD FEATURES DISABLED - FASE 1: IA 100% LOCAL
-        // Verificar sesión de Google existente
-        checkExistingGoogleSession()
-        */
-        
-        Logger.i("MainActivity creada - IA 100% Local (Cloud desactivado)")
+        Logger.i("MainActivity creada - IA 100% Local")
     }
     
-    /* CLOUD FEATURES DISABLED - FASE 1: IA 100% LOCAL
-    /**
-     * Verifica si hay una sesión de Google activa.
-     */
-    private fun checkExistingGoogleSession() {
-        if (googleAuthManager.isSignedIn()) {
-            currentGoogleAccount = googleAuthManager.getCurrentAccount()
-            updateGoogleUI(true)
-            Logger.i("MainActivity: Sesión de Google existente - ${currentGoogleAccount?.email}")
-        } else {
-            updateGoogleUI(false)
-        }
-    }
-    */
     
     override fun onResume() {
         super.onResume()
@@ -226,10 +161,6 @@ class MainActivity : AppCompatActivity() {
             receiverRegistered = false
         }
         
-        // Cleanup SocketIO
-        if (::socketIOManager.isInitialized) {
-            socketIOManager.disconnect()
-        }
     }
     
     private fun initViews() {
@@ -240,46 +171,12 @@ class MainActivity : AppCompatActivity() {
         btnCalibrate = findViewById(R.id.btnCalibrate)
         tvLastAction = findViewById(R.id.tvLastAction)
         
-        // SocketIO UI
-        etServerUrl = findViewById(R.id.etServerUrl)
-        btnConnect = findViewById(R.id.btnConnect)
-        tvConnectionStatus = findViewById(R.id.tvConnectionStatus)
-        tvLatency = findViewById(R.id.tvLatency)
-        tvConnectionFps = findViewById(R.id.tvFps)
-        
-        /* CLOUD FEATURES DISABLED - FASE 1: IA 100% LOCAL
-        // Google Sign-In UI
-        signInButton = findViewById(R.id.signInButton)
-        btnSignOut = findViewById(R.id.btnSignOut)
-        tvGoogleStatus = findViewById(R.id.tvGoogleStatus)
-        tvUserName = findViewById(R.id.tvUserName)
-        ivUserPhoto = findViewById(R.id.ivUserPhoto)
-        layoutGoogleProfile = findViewById(R.id.layoutGoogleProfile)
-        progressBarModelDownload = findViewById(R.id.progressBarModelDownload)
-        tvModelDownloadStatus = findViewById(R.id.tvModelDownloadStatus)
-        btnCheckModelUpdate = findViewById(R.id.btnCheckModelUpdate)
-        btnSyncNow = findViewById(R.id.btnSyncNow)
-        */
-        
-        // Initialize SocketIO Manager
-        socketIOManager = SocketIOManager.getInstance()
-        setupSocketIOCallbacks()
-        
-        /* CLOUD FEATURES DISABLED - FASE 1: IA 100% LOCAL
-        // Setup Google Sign-In listeners
-        setupGoogleSignInListeners()
-        */
-        
         btnToggleService.setOnClickListener {
             toggleService()
         }
         
         btnCalibrate.setOnClickListener {
             startCalibration()
-        }
-        
-        btnConnect.setOnClickListener {
-            handleConnectClick()
         }
         
         seekBarFps.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -296,76 +193,6 @@ class MainActivity : AppCompatActivity() {
         })
     }
     
-    /* CLOUD FEATURES DISABLED - FASE 1: IA 100% LOCAL
-    /**
-     * Configura los listeners de Google Sign-In.
-     */
-    private fun setupGoogleSignInListeners() {
-        signInButton.setOnClickListener {
-            handleGoogleSignIn()
-        }
-        
-        btnSignOut.setOnClickListener {
-            handleGoogleSignOut()
-        }
-        
-        btnCheckModelUpdate.setOnClickListener {
-            checkForModelUpdate()
-        }
-        
-        btnSyncNow.setOnClickListener {
-            triggerManualSync()
-        }
-    }
-    */
-    
-    private fun setupSocketIOCallbacks() {
-        socketIOManager.setOnConnectionChanged { isConnected, message ->
-            runOnUiThread {
-                val statusText = if (isConnected) "🟢 $message" else "🔴 $message"
-                tvConnectionStatus.text = statusText
-                btnConnect.text = if (isConnected) "Desconectar" else "Conectar"
-            }
-        }
-        
-        socketIOManager.setOnActionReceived { action ->
-            runOnUiThread {
-                tvLastAction.text = "Última: ${action.type} (${action.x},${action.y})"
-            }
-        }
-        
-        socketIOManager.setOnError { error ->
-            runOnUiThread {
-                Toast.makeText(this, error, Toast.LENGTH_LONG).show()
-            }
-        }
-        
-        socketIOManager.setOnMetricsUpdate { latency, fps, bytesSent ->
-            runOnUiThread {
-                tvLatency.text = "${latency}ms"
-                tvConnectionFps.text = "${fps} FPS"
-            }
-        }
-    }
-    
-    private fun handleConnectClick() {
-        if (socketIOManager.isConnected()) {
-            socketIOManager.disconnect()
-        } else {
-            val url = etServerUrl.text.toString().trim()
-            if (url.isEmpty()) {
-                Toast.makeText(this, "Ingresa la URL del servidor", Toast.LENGTH_SHORT).show()
-                return
-            }
-            
-            ServerConfig.configure(url)
-            val success = socketIOManager.connect()
-            
-            if (!success) {
-                Toast.makeText(this, "Error al iniciar conexión", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
     
     private fun loadSettings() {
         Config.init(this)
@@ -478,204 +305,4 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
     
-    /* CLOUD FEATURES DISABLED - FASE 1: IA 100% LOCAL
-    // ============================================
-    // GOOGLE SIGN-IN METHODS (DISABLED)
-    // ============================================
-    
-    /**
-     * Inicia el proceso de Sign-In con Google.
-     */
-    private fun handleGoogleSignIn() {
-        googleAuthManager.signIn(this) { result ->
-            result.onSuccess { account ->
-                currentGoogleAccount = account
-                runOnUiThread {
-                    updateGoogleUI(true)
-                    Toast.makeText(this, "Bienvenido ${account.displayName}", Toast.LENGTH_SHORT).show()
-                }
-                Logger.i("MainActivity: Google Sign-In exitoso - ${account.email}")
-                
-                // Iniciar sincronización periódica
-                scheduleDriveSync()
-                
-            }.onFailure { error ->
-                runOnUiThread {
-                    Toast.makeText(this, "Error de inicio de sesión: ${error.message}", Toast.LENGTH_LONG).show()
-                }
-                Logger.e("MainActivity: Google Sign-In falló", error)
-            }
-        }
-    }
-    
-    /**
-     * Cierra la sesión de Google.
-     */
-    private fun handleGoogleSignOut() {
-        googleAuthManager.signOut { success ->
-            runOnUiThread {
-                if (success) {
-                    currentGoogleAccount = null
-                    updateGoogleUI(false)
-                    Toast.makeText(this, "Sesión cerrada", Toast.LENGTH_SHORT).show()
-                    Logger.i("MainActivity: Google Sign-Out exitoso")
-                } else {
-                    Toast.makeText(this, "Error al cerrar sesión", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
-    
-    /**
-     * Actualiza la UI según el estado de autenticación.
-     */
-    private fun updateGoogleUI(isSignedIn: Boolean) {
-        if (isSignedIn) {
-            signInButton.visibility = View.GONE
-            layoutGoogleProfile.visibility = View.VISIBLE
-            btnSignOut.visibility = View.VISIBLE
-            btnCheckModelUpdate.visibility = View.VISIBLE
-            btnSyncNow.visibility = View.VISIBLE
-            tvGoogleStatus.text = "🟢 Conectado a Google Drive"
-            tvUserName.text = currentGoogleAccount?.displayName ?: currentGoogleAccount?.email
-            
-            // Mostrar info del modelo actual
-            val modelSize = NeuralNetwork.getCurrentModelSize(this)
-            val modelSizeMB = modelSize / (1024 * 1024)
-            tvModelDownloadStatus.text = "Modelo actual: $modelSizeMB MB"
-        } else {
-            signInButton.visibility = View.VISIBLE
-            layoutGoogleProfile.visibility = View.GONE
-            btnSignOut.visibility = View.GONE
-            btnCheckModelUpdate.visibility = View.GONE
-            btnSyncNow.visibility = View.GONE
-            tvGoogleStatus.text = "🔴 Sin conexión a Google Drive"
-            tvUserName.text = ""
-            tvModelDownloadStatus.text = "Inicia sesión para sincronizar modelos"
-        }
-    }
-    
-    /**
-     * Verifica si hay actualizaciones de modelo disponibles en Drive.
-     */
-    private fun checkForModelUpdate() {
-        if (!googleAuthManager.isSignedIn()) {
-            Toast.makeText(this, "Inicia sesión primero", Toast.LENGTH_SHORT).show()
-            return
-        }
-        
-        lifecycleScope.launch {
-            try {
-                tvModelDownloadStatus.text = "Verificando actualizaciones..."
-                progressBarModelDownload.visibility = View.VISIBLE
-                btnCheckModelUpdate.isEnabled = false
-                
-                val authToken = googleAuthManager.getIdToken()
-                if (authToken == null) {
-                    Toast.makeText(this@MainActivity, "Error de autenticación", Toast.LENGTH_SHORT).show()
-                    return@launch
-                }
-                
-                // Aquí se implementaría la verificación con Drive
-                // Por ahora, simulamos que hay una actualización disponible
-                
-                tvModelDownloadStatus.text = "Actualización disponible (simulación)"
-                
-                AlertDialog.Builder(this@MainActivity)
-                    .setTitle("Actualización de Modelo")
-                    .setMessage("Hay una nueva versión del modelo disponible. ¿Deseas descargarla?")
-                    .setPositiveButton("Descargar") { _, _ ->
-                        downloadModelFromDrive()
-                    }
-                    .setNegativeButton("Cancelar", null)
-                    .show()
-                    
-            } catch (e: Exception) {
-                Logger.e("MainActivity: Error verificando actualización", e)
-                Toast.makeText(this@MainActivity, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-            } finally {
-                progressBarModelDownload.visibility = View.GONE
-                btnCheckModelUpdate.isEnabled = true
-            }
-        }
-    }
-    
-    /**
-     * Descarga el modelo desde Google Drive.
-     */
-    private fun downloadModelFromDrive() {
-        lifecycleScope.launch {
-            try {
-                tvModelDownloadStatus.text = "Descargando modelo..."
-                progressBarModelDownload.visibility = View.VISIBLE
-                progressBarModelDownload.progress = 0
-                btnCheckModelUpdate.isEnabled = false
-                
-                // Implementación real usaría ModelDownloader con Drive API
-                // Por ahora simulamos la descarga
-                
-                for (i in 0..100 step 10) {
-                    progressBarModelDownload.progress = i
-                    tvModelDownloadStatus.text = "Descargando... $i%"
-                    kotlinx.coroutines.delay(200)
-                }
-                
-                tvModelDownloadStatus.text = "✅ Modelo actualizado"
-                Toast.makeText(this@MainActivity, "Modelo descargado exitosamente", Toast.LENGTH_SHORT).show()
-                
-            } catch (e: Exception) {
-                Logger.e("MainActivity: Error descargando modelo", e)
-                tvModelDownloadStatus.text = "❌ Error en descarga"
-                Toast.makeText(this@MainActivity, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-            } finally {
-                progressBarModelDownload.visibility = View.GONE
-                btnCheckModelUpdate.isEnabled = true
-            }
-        }
-    }
-    
-    /**
-     * Inicia sincronización manual con Drive.
-     */
-    private fun triggerManualSync() {
-        if (!googleAuthManager.isSignedIn()) {
-            Toast.makeText(this, "Inicia sesión primero", Toast.LENGTH_SHORT).show()
-            return
-        }
-        
-        val authToken = googleAuthManager.getServerAuthCode()
-        if (authToken != null) {
-            BackupScheduler.runOneTimeSync(this, authToken, syncModels = true, syncData = true)
-            Toast.makeText(this, "Sincronización iniciada", Toast.LENGTH_SHORT).show()
-            Logger.i("MainActivity: Sincronización manual iniciada")
-        } else {
-            Toast.makeText(this, "Error obteniendo token de autenticación", Toast.LENGTH_SHORT).show()
-        }
-    }
-    
-    /**
-     * Programa sincronización periódica con Drive.
-     */
-    private fun scheduleDriveSync() {
-        val authToken = googleAuthManager.getServerAuthCode()
-        if (authToken != null) {
-            // Programar sincronización cada 6 horas, solo WiFi
-            BackupScheduler.schedulePeriodicSync(
-                this,
-                repeatInterval = 6,
-                requireWifi = true,
-                requireCharging = false
-            )
-            Logger.i("MainActivity: Sincronización periódica programada")
-        }
-    }
-    
-    /**
-     * Maneja el resultado de Sign-In desde onActivityResult.
-     */
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        googleAuthManager.handleSignInResult(requestCode, resultCode, data)
-    }
-    */
 }
