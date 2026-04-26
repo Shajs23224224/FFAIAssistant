@@ -55,8 +55,8 @@ class Orchestrator(private val context: Context) {
     // Módulos especializados (se inyectan)
     private val modules = ConcurrentHashMap<ModuleType, Module>()
     
-    // Pipeline de decisión
-    private lateinit var decisionPipeline: DecisionPipeline
+    // Pipeline de decisión (temporalmente deshabilitado - usar DecisionEngine directamente)
+    // private lateinit var decisionPipeline: DecisionPipeline
     
     // Estado del sistema
     private val isRunning = AtomicBoolean(false)
@@ -81,9 +81,9 @@ class Orchestrator(private val context: Context) {
         // 1. Inicializar sistema de memoria
         memory = HierarchicalMemorySystem()
         
-        // 2. Inicializar pipeline de decisión
-        decisionPipeline = DecisionPipeline(context, memory)
-        decisionPipeline.initialize()
+        // 2. Pipeline de decisión deshabilitado - usar DecisionEngine en FFAccessibilityService
+        // decisionPipeline = DecisionPipeline(context, memory)
+        // decisionPipeline.initialize()
         
         // 3. Inicializar context engine
         contextEngine.initialize()
@@ -116,8 +116,9 @@ class Orchestrator(private val context: Context) {
                 // 1. Actualizar contexto global
                 val currentContext = contextEngine.update()
                 
-                // 2. Ejecutar pipeline de decisión
-                val decision = decisionPipeline.process(currentContext)
+                // 2. Ejecutar pipeline de decisión (deshabilitado)
+                // val decision = decisionPipeline.process(currentContext)
+                val decision = Decision(Action.hold(), Priority.LOW) // Placeholder
                 
                 // 3. Resolver conflictos entre módulos
                 val resolvedDecision = priorityResolver.resolve(decision, modules.values.toList())
@@ -240,17 +241,13 @@ class Orchestrator(private val context: Context) {
         Logger.i(TAG, "Acción forzada: ${action.type}")
     }
 
-    fun reportActionResult(action: Action, result: ActionResult) {
+    fun reportActionResult(action: Action, result: MemoryDecisionResult) {
         // Feedback para aprendizaje
         memory.shortTerm.recordDecision(
             DecisionRecord(
                 action = action,
                 situation = contextEngine.getCurrentContext(),
-                result = when (result) {
-                    ActionResult.SUCCESS -> MemoryDecisionResult.SUCCESS
-                    ActionResult.PARTIAL -> MemoryDecisionResult.PARTIAL
-                    ActionResult.FAILURE -> MemoryDecisionResult.FAILURE
-                }
+                result = result
             )
         )
     }
@@ -335,57 +332,6 @@ class ContextEngine {
 }
 
 // ============================================
-// PIPELINE DE DECISIÓN
-// ============================================
-
-class DecisionPipeline(
-    private val context: Context,
-    private val memory: HierarchicalMemorySystem
-) {
-    
-    private lateinit var reflexEngine: ReflexEngine
-    private lateinit var tacticalEngine: TacticalEngine
-    private lateinit var strategicEngine: StrategicEngine
-    
-    fun initialize() {
-        reflexEngine = ReflexEngine()
-        tacticalEngine = TacticalEngine()
-        strategicEngine = StrategicEngine()
-    }
-    
-    fun process(context: SituationContext): Decision {
-        val startTime = System.currentTimeMillis()
-        
-        // NIVEL 1: Reflejos (< 3ms)
-        val reflexDecision = reflexEngine.decide(context)
-        if (reflexDecision != null && reflexDecision.priority >= Priority.HIGH) {
-            return reflexDecision
-        }
-        
-        // NIVEL 2: Táctico (3-8ms)
-        val tacticalDecision = tacticalEngine.decide(context)
-        if (tacticalDecision != null && tacticalDecision.priority >= Priority.MEDIUM) {
-            return tacticalDecision
-        }
-        
-        // NIVEL 3: Estratégico (cuando aplica)
-        val strategicDecision = strategicEngine.decide(context)
-        
-        // Seleccionar mejor decisión
-        val decision = listOfNotNull(reflexDecision, tacticalDecision, strategicDecision)
-            .maxByOrNull { it.priority.score }
-            ?: Decision(Action.hold(), Priority.NONE)
-        
-        val latency = System.currentTimeMillis() - startTime
-        if (latency > 16) {
-            Logger.w("DecisionPipeline", "Latencia alta: ${latency}ms")
-        }
-        
-        return decision
-    }
-}
-
-// ============================================
 // MÓDULOS
 // ============================================
 
@@ -441,33 +387,6 @@ enum class MissionState {
     LOOT,          // Buscando recursos
     ROTATION,      // Moviéndose por zona
     POSITIONING    // Posicionándose estratégicamente
-}
-
-enum class ActionResult { SUCCESS, PARTIAL, FAILURE }
-
-// Alias para compatibilidad
-typealias DecisionResult = MemoryDecisionResult
-
-data class EnemyInfo(
-    val id: String,
-    val position: Position,
-    val health: Float,
-    val distance: Float
-)
-
-data class Position(val x: Float, val y: Float, val z: Float = 0f)
-
-// Stub classes for engines (implementations to be added)
-class ReflexEngine {
-    fun decide(context: SituationContext): Decision? = null
-}
-
-class TacticalEngine {
-    fun decide(context: SituationContext): Decision? = null
-}
-
-class StrategicEngine {
-    fun decide(context: SituationContext): Decision? = null
 }
 
 data class OrchestratorStats(

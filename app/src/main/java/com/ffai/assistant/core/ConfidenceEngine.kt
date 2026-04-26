@@ -215,10 +215,10 @@ class ConfidenceEngine {
     /**
      * Reporta decisión tomada y su resultado.
      */
-    fun reportDecision(decision: ActionType, result: DecisionResult) {
+    fun reportDecision(decision: ActionType, result: ConfidenceResult) {
         totalDecisions.incrementAndGet()
         
-        if (result == DecisionResult.SUCCESS || result == DecisionResult.GOOD) {
+        if (result == ConfidenceResult.SUCCESS || result == ConfidenceResult.GOOD) {
             correctDecisions.incrementAndGet()
         }
         
@@ -412,7 +412,7 @@ enum class ConfidenceMode {
     AGGRESSIVE    // > 0.8, riesgos calculados
 }
 
-enum class DecisionResult {
+enum class ConfidenceResult {
     EXCELLENT, GOOD, SUCCESS, NEUTRAL, POOR, FAILURE
 }
 
@@ -449,7 +449,7 @@ data class ConfidenceStats(
 private data class InternalDecisionRecord(
     val timestamp: Long,
     val action: ActionType,
-    val result: DecisionResult
+    val result: ConfidenceResult
 )
 
 private data class KillRecord(

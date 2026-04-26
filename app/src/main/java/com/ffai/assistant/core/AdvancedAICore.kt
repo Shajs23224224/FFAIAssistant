@@ -16,7 +16,7 @@ import com.ffai.assistant.model.ModelEnsembleManager
 import com.ffai.assistant.core.ReasoningMode
 import com.ffai.assistant.model.StrategicEnsembleResult
 import com.ffai.assistant.model.TacticalEnsembleResult
-import com.ffai.assistant.core.DecisionResult
+import com.ffai.assistant.core.ConfidenceResult
 import com.ffai.assistant.navigation.MapInterpreter
 import com.ffai.assistant.overlay.AnalysisArea
 import com.ffai.assistant.overlay.DynamicOverlayService
@@ -366,7 +366,7 @@ class AdvancedAICore(
         // Reportar decisión para confianza
         confidenceEngine.reportDecision(
             action.type,
-            com.ffai.assistant.core.DecisionResult.SUCCESS // Determinar basado en resultado
+            com.ffai.assistant.core.ConfidenceResult.SUCCESS // Determinar basado en resultado
         )
     }
 
