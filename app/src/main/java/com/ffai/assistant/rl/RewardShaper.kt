@@ -289,12 +289,12 @@ class RewardShaper {
     private fun calculatePenalties(
         previous: EnsembleResult?,
         current: EnsembleResult,
-        action: com.ffai.assistant.model.ActionType
+        action: com.ffai.assistant.action.ActionType
     ): Float {
         var penalty = 0f
         
         // Desperdicio de munición (disparo sin enemigos)
-        if (action == com.ffai.assistant.model.ActionType.SHOOT && current.mergedEnemies.isEmpty()) {
+        if (action == com.ffai.assistant.action.ActionType.SHOOT && current.mergedEnemies.isEmpty()) {
             penalty += PENALTY_AMMO_WASTE
         }
         
@@ -302,13 +302,13 @@ class RewardShaper {
         val hasCloseEnemies = current.mergedEnemies.any { 
             kotlin.math.hypot(it.x - 360.0, it.y - 800.0) < 100 
         }
-        if (action == com.ffai.assistant.model.ActionType.RELOAD && hasCloseEnemies) {
+        if (action == com.ffai.assistant.action.ActionType.RELOAD && hasCloseEnemies) {
             penalty += PENALTY_UNNECESSARY_RELOAD
         }
         
         // Exposición alto riesgo
         if (current.tacticalOutput?.situation?.dangerLevel?.let { it > 0.8f } == true &&
-            action == com.ffai.assistant.model.ActionType.SHOOT) {
+            action == com.ffai.assistant.action.ActionType.SHOOT) {
             penalty += PENALTY_EXPOSURE_HIGH_RISK
         }
         
@@ -331,7 +331,7 @@ class RewardShaper {
      * Shaping temporal (recompensas diferidas para secuencias).
      */
     private fun calculateTemporalShaping(
-        action: com.ffai.assistant.model.ActionType,
+        action: com.ffai.assistant.action.ActionType,
         timestamp: Long
     ): Float {
         var shaping = 0f
@@ -342,15 +342,15 @@ class RewardShaper {
             val lastAction = actionSequence.lastOrNull()
             val secondLast = actionSequence.dropLast(1).lastOrNull()
             
-            if (lastAction?.type == com.ffai.assistant.model.ActionType.SHOOT &&
-                secondLast?.type == com.ffai.assistant.model.ActionType.AIM &&
+            if (lastAction?.type == com.ffai.assistant.action.ActionType.SHOOT &&
+                secondLast?.type == com.ffai.assistant.action.ActionType.AIM &&
                 timestamp - secondLast.timestamp < 500) {
                 // Buena secuencia aim->shoot rápido
                 shaping += 2f
             }
             
             // Secuencia defensiva: MOVE + HEAL
-            if (lastAction?.type == com.ffai.assistant.model.ActionType.HEAL &&
+            if (lastAction?.type == com.ffai.assistant.action.ActionType.HEAL &&
                 secondLast?.type?.name?.contains("MOVE") == true) {
                 shaping += 3f
             }
@@ -371,8 +371,8 @@ class RewardShaper {
         }
         
         // Secuencia de combate exitoso: AIM -> SHOOT -> KILL detectado
-        val hasAim = recentActions.any { it.type == com.ffai.assistant.model.ActionType.AIM }
-        val hasShoot = recentActions.any { it.type == com.ffai.assistant.model.ActionType.SHOOT }
+        val hasAim = recentActions.any { it.type == com.ffai.assistant.action.ActionType.AIM }
+        val hasShoot = recentActions.any { it.type == com.ffai.assistant.action.ActionType.SHOOT }
         
         if (hasAim && hasShoot) {
             // Verificar si hubo kill después
