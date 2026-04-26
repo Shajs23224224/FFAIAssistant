@@ -170,94 +170,20 @@ class NeuralNetwork(context: Context) {
     /**
      * Verifica si hay una actualización de modelo disponible en Google Drive.
      * Compara el manifest remoto con el modelo local.
-     * 
-     * @param driveSyncManager Instancia inicializada de DriveSyncManager
-     * @return Información de la actualización disponible o null
+     * NOTA: Función deshabilitada - modo offline
      */
-    suspend fun checkForRemoteUpdate(driveSyncManager: DriveSyncManager): RemoteModelInfo? {
-        return try {
-            // Listar archivos en Drive
-            val remoteFiles = driveSyncManager.listFiles(DriveSyncManager.FOLDER_MODELS)
-            
-            // Buscar manifest.json
-            val manifestFile = remoteFiles.find { it.name == "manifest.json" }
-            val remoteModel = remoteFiles.find { it.name == Constants.MODEL_CURRENT }
-            
-            if (remoteModel == null) {
-                Logger.w("NeuralNetwork: No hay modelo remoto disponible")
-                return null
-            }
-            
-            // Comparar tamaños (simplificado - en producción usar hash o timestamp)
-            val localSize = if (modelFile.exists()) modelFile.length() else 0
-            val remoteSize = remoteModel.size
-            
-            if (remoteSize != localSize) {
-                Logger.i("NeuralNetwork: Actualización disponible - Local: $localSize bytes, Remoto: $remoteSize bytes")
-                RemoteModelInfo(
-                    fileId = remoteModel.id,
-                    fileName = remoteModel.name,
-                    size = remoteSize,
-                    modifiedTime = remoteModel.modifiedTime,
-                    isNewer = remoteSize > localSize // Asumiendo que mayor tamaño = más actualizado
-                )
-            } else {
-                null // Modelo está actualizado
-            }
-        } catch (e: Exception) {
-            Logger.e("NeuralNetwork: Error verificando actualización", e)
-            null
-        }
+    suspend fun checkForRemoteUpdate(): RemoteModelInfo? {
+        // Modo offline - no hay actualizaciones remotas
+        return null
     }
     
     /**
      * Descarga y carga un modelo desde Google Drive.
-     * 
-     * @param modelInfo Información del modelo remoto
-     * @param driveSyncManager Instancia inicializada de DriveSyncManager
-     * @param downloadProgress Callback de progreso (bytes descargados, total)
-     * @return true si la descarga y carga fueron exitosas
+     * NOTA: Función deshabilitada - modo offline
      */
-    suspend fun downloadAndLoadRemoteModel(
-        modelInfo: RemoteModelInfo,
-        driveSyncManager: DriveSyncManager,
-        downloadProgress: ((downloaded: Long, total: Long) -> Unit)? = null
-    ): Boolean {
-        return try {
-            // Backup del modelo actual antes de reemplazar
-            if (modelFile.exists() && modelFile.length() > 0) {
-                backup()
-            }
-            
-            // Descargar modelo
-            val success = driveSyncManager.downloadFile(modelInfo.fileId, modelFile)
-            
-            if (success && modelFile.exists() && modelFile.length() > 0) {
-                // Cargar nuevo modelo
-                close() // Cerrar modelo anterior
-                loadModel()
-                
-                if (interpreter != null) {
-                    Logger.i("NeuralNetwork: Modelo remoto descargado y cargado exitosamente")
-                    true
-                } else {
-                    // Fallback: restaurar backup
-                    Logger.e("NeuralNetwork: Error cargando modelo remoto, restaurando backup")
-                    restore()
-                    false
-                }
-            } else {
-                Logger.e("NeuralNetwork: Descarga fallida o archivo corrupto")
-                // Intentar restaurar backup si existe
-                if (File(modelFile.parent, Constants.MODEL_BACKUP).exists()) {
-                    restore()
-                }
-                false
-            }
-        } catch (e: Exception) {
-            Logger.e("NeuralNetwork: Error descargando modelo remoto", e)
-            false
-        }
+    suspend fun downloadAndLoadRemoteModel(): Boolean {
+        // Modo offline - no hay descarga remota
+        return false
     }
     
     /**

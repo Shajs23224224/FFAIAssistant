@@ -126,7 +126,7 @@ class DynamicOverlayService : Service() {
 
         // Crear vista de análisis personalizada
         analysisOverlay = AnalysisOverlayView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
+            this.layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
@@ -134,7 +134,7 @@ class DynamicOverlayService : Service() {
 
         // Añadir indicador de ROI
         roiIndicator = ROIIndicatorView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
+            this.layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )

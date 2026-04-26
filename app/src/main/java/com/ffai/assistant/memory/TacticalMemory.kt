@@ -221,7 +221,7 @@ class TacticalMemory {
     /**
      * Registra resultado de decisión.
      */
-    fun recordDecision(decision: String, situation: SituationFeatures, result: DecisionResult) {
+    fun recordDecision(decision: String, situation: SituationFeatures, result: DecisionOutcomeResult) {
         decisionHistory.add(DecisionOutcome(
             decision = decision,
             situation = situation,

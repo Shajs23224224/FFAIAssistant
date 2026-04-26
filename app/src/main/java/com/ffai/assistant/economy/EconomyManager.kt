@@ -157,8 +157,8 @@ class EconomyManager {
         }
         
         // 4. Utilidades útiles
-        if (utilities[UtilityType.SMOKE]?.get() ?: 0 < 2) {
-            priorities.add(LootPriority(UtilityType.SMOKE, 60))
+        if (utilities[UtilityType.GRENADE_SMOKE]?.get() ?: 0 < 2) {
+            priorities.add(LootPriority(UtilityType.GRENADE_SMOKE, 60))
         }
         
         return priorities.sortedByDescending { it.priority }
@@ -278,8 +278,8 @@ class EconomyManager {
      */
     fun calculateOpportunityCost(action: EconomicAction, context: EconomicContext): OpportunityCost {
         val timeCost = action.timeRequiredMs * context.timePressureFactor
-        val riskCost = action.riskLevel * context.dangerLevel * 100
-        val resourceCost = action.resourcesConsumed.sumOf { getResourceValue(it) }
+        val riskCost = action.riskLevel * context.dangerLevel * 100f
+        val resourceCost = action.resourcesConsumed.sumOf { getResourceValue(it).toDouble() }.toFloat()
         
         val totalCost = timeCost + riskCost + resourceCost
         val expectedBenefit = action.expectedBenefit
@@ -287,7 +287,7 @@ class EconomyManager {
         return OpportunityCost(
             totalCost = totalCost,
             expectedBenefit = expectedBenefit,
-            roi = if (totalCost > 0) expectedBenefit / totalCost else 0f
+            roi = if (totalCost > 0f) expectedBenefit / totalCost else 0f
         )
     }
     

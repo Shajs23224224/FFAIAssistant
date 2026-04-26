@@ -448,38 +448,33 @@ fun Action.Companion.hold(): Action = Action(
     type = ActionType.HOLD,
     x = 0, y = 0,
     confidence = 1f,
-    durationMs = 0,
-    priority = 0
+    duration = 0
 )
 
 fun Action.Companion.heal(): Action = Action(
     type = ActionType.HEAL,
     x = 0, y = 0,
     confidence = 1f,
-    durationMs = 500,
-    priority = Priority.CRITICAL.score
+    duration = 500
 )
 
 fun Action.Companion.crouch(): Action = Action(
     type = ActionType.CROUCH,
     x = 0, y = 0,
     confidence = 1f,
-    durationMs = 200,
-    priority = Priority.HIGH.score
+    duration = 200
 )
 
 fun Action.Companion.aim(x: Int, y: Int): Action = Action(
     type = ActionType.AIM,
     x = x, y = y,
     confidence = 0.8f,
-    durationMs = 100,
-    priority = Priority.MEDIUM.score
+    duration = 100
 )
 
 fun Action.Companion.moveForward(): Action = Action(
     type = ActionType.MOVE_FORWARD,
     x = 0, y = 0,
     confidence = 0.7f,
-    durationMs = 300,
-    priority = Priority.LOW.score
+    duration = 300
 )

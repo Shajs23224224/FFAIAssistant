@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/controlPanel"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="#CC000000"
+    android:padding="8dp">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <ImageButton
+            android:id="@+id/dragHandle"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@android:drawable/ic_menu_sort_by_size"
+            android:background="?attr/selectableItemBackground"
+            android:contentDescription="Move panel" />
+
+        <Button
+            android:id="@+id/toggleAnalysis"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Analysis"
+            android:textSize="12sp" />
+
+        <SeekBar
+            android:id="@+id/roiSeekBar"
+            android:layout_width="150dp"
+            android:layout_height="wrap_content"
+            android:max="100" />
+
+        <TextView
+            android:id="@+id/roiLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ROI: 50%"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp" />
+
+        <RadioGroup
+            android:id="@+id/cameraProfileGroup"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <RadioButton
+                android:id="@+id/cameraSmooth"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="S"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp" />
+
+            <RadioButton
+                android:id="@+id/cameraMedium"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="M"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp" />
+
+            <RadioButton
+                android:id="@+id/cameraAggressive"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="A"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp" />
+        </RadioGroup>
+
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Ready"
+            android:textColor="#00FF00"
+            android:textSize="12sp" />
+
+    </LinearLayout>
+</FrameLayout>

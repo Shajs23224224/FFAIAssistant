@@ -586,8 +586,7 @@ private fun Action.Companion.aim(x: Int, y: Int): Action {
         x = x,
         y = y,
         confidence = 1f,
-        durationMs = 100,
-        priority = 5,
+        duration = 100,
         timestamp = System.currentTimeMillis()
     )
 }
@@ -598,8 +597,7 @@ private fun Action.Companion.shoot(): Action {
         x = 0,
         y = 0,
         confidence = 1f,
-        durationMs = 50,
-        priority = 10,
+        duration = 50,
         timestamp = System.currentTimeMillis()
     )
 }
@@ -610,8 +608,7 @@ private fun Action.Companion.move(dx: Float, dy: Float): Action {
         x = 0,
         y = 0,
         confidence = kotlin.math.abs(dx).coerceAtLeast(kotlin.math.abs(dy)),
-        durationMs = 200,
-        priority = 3,
+        duration = 200,
         timestamp = System.currentTimeMillis()
     )
 }
@@ -622,8 +619,7 @@ private fun Action.Companion.heal(): Action {
         x = 0,
         y = 0,
         confidence = 1f,
-        durationMs = 500,
-        priority = 8,
+        duration = 500,
         timestamp = System.currentTimeMillis()
     )
 }
@@ -634,8 +630,7 @@ private fun Action.Companion.reload(): Action {
         x = 0,
         y = 0,
         confidence = 1f,
-        durationMs = 1000,
-        priority = 7,
+        duration = 1000,
         timestamp = System.currentTimeMillis()
     )
 }
@@ -646,8 +641,7 @@ private fun Action.Companion.crouch(): Action {
         x = 0,
         y = 0,
         confidence = 1f,
-        durationMs = 200,
-        priority = 4,
+        duration = 200,
         timestamp = System.currentTimeMillis()
     )
 }
@@ -658,8 +652,7 @@ private fun Action.Companion.jump(): Action {
         x = 0,
         y = 0,
         confidence = 1f,
-        durationMs = 300,
-        priority = 3,
+        duration = 300,
         timestamp = System.currentTimeMillis()
     )
 }
@@ -670,8 +663,7 @@ private fun Action.Companion.loot(): Action {
         x = 0,
         y = 0,
         confidence = 1f,
-        durationMs = 1000,
-        priority = 2,
+        duration = 1000,
         timestamp = System.currentTimeMillis()
     )
 }
@@ -682,8 +674,7 @@ private fun Action.Companion.revive(): Action {
         x = 0,
         y = 0,
         confidence = 1f,
-        durationMs = 3000,
-        priority = 9,
+        duration = 3000,
         timestamp = System.currentTimeMillis()
     )
 }
@@ -694,8 +685,7 @@ private fun Action.Companion.hold(): Action {
         x = 0,
         y = 0,
         confidence = 0.5f,
-        durationMs = 0,
-        priority = 0,
+        duration = 0,
         timestamp = System.currentTimeMillis()
     )
 }
