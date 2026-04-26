@@ -2,6 +2,7 @@ package com.ffai.assistant.model
 
 import android.content.Context
 import android.graphics.Bitmap
+import com.ffai.assistant.action.ActionType
 import com.ffai.assistant.overlay.FrameData
 import com.ffai.assistant.utils.Logger
 import kotlinx.coroutines.*
@@ -526,11 +527,6 @@ data class ActionSuggestion(
     val confidence: Float,
     val parameters: Map<String, Any> = emptyMap()
 )
-
-enum class ActionType {
-    AIM, SHOOT, MOVE_FORWARD, MOVE_BACKWARD, MOVE_LEFT, MOVE_RIGHT,
-    HEAL, RELOAD, CROUCH, JUMP, LOOT, REVIVE, ROTATE_LEFT, ROTATE_RIGHT, HOLD
-}
 
 private data class InferenceResult(
     val result: EnsembleResult,

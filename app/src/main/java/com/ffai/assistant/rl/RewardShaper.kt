@@ -84,7 +84,7 @@ class RewardShaper {
     fun calculateReward(
         previousState: EnsembleResult?,
         currentState: EnsembleResult,
-        actionTaken: com.ffai.assistant.model.ActionType,
+        actionTaken: com.ffai.assistant.action.ActionType,
         timestamp: Long
     ): Float {
         var reward = 0f
@@ -465,7 +465,7 @@ private data class DamageRecord(
 )
 
 private data class ActionRecord(
-    val type: com.ffai.assistant.model.ActionType,
+    val type: com.ffai.assistant.action.ActionType,
     val reward: Float,
     val timestamp: Long
 )

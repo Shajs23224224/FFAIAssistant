@@ -2,6 +2,7 @@ package com.ffai.assistant.model
 
 import android.content.Context
 import android.graphics.Bitmap
+import com.ffai.assistant.action.ActionType
 import com.ffai.assistant.overlay.FrameData
 import com.ffai.assistant.utils.Logger
 import org.tensorflow.lite.Interpreter
