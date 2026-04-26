@@ -4,6 +4,11 @@ import android.content.Context
 import com.ffai.assistant.action.Action
 import com.ffai.assistant.action.ActionType
 import com.ffai.assistant.memory.HierarchicalMemorySystem
+import com.ffai.assistant.memory.HealthLevel
+import com.ffai.assistant.memory.ZoneStatus
+import com.ffai.assistant.memory.DecisionRecord
+import com.ffai.assistant.memory.SituationContext
+import com.ffai.assistant.memory.MemoryDecisionResult
 import com.ffai.assistant.utils.Logger
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
@@ -126,7 +131,7 @@ class Orchestrator(private val context: Context) {
                     DecisionRecord(
                         action = resolvedDecision.action,
                         situation = currentContext,
-                        result = DecisionResult.UNKNOWN
+                        result = MemoryDecisionResult.UNKNOWN
                     )
                 )
                 
@@ -164,10 +169,21 @@ class Orchestrator(private val context: Context) {
     // ============================================
     
     private fun executeDecision(decision: Decision) {
-        val module = modules[decision.actionType.module]
+        val moduleType = getModuleTypeForAction(decision.actionType)
+        val module = modules[moduleType]
         
         module?.execute(decision.action) ?: run {
             Logger.w(TAG, "No hay módulo para ejecutar: ${decision.actionType}")
+        }
+    }
+    
+    private fun getModuleTypeForAction(actionType: ActionType): ModuleType {
+        return when (actionType) {
+            ActionType.AIM, ActionType.SHOOT, ActionType.ROTATE_LEFT, ActionType.ROTATE_RIGHT -> ModuleType.SHOOTING
+            ActionType.MOVE_FORWARD, ActionType.MOVE_BACKWARD, ActionType.MOVE_LEFT, ActionType.MOVE_RIGHT -> ModuleType.TACTIC
+            ActionType.HEAL, ActionType.RELOAD, ActionType.LOOT, ActionType.REVIVE -> ModuleType.ECONOMY
+            ActionType.CROUCH, ActionType.JUMP -> ModuleType.TACTIC
+            ActionType.HOLD -> ModuleType.META
         }
     }
 
@@ -231,9 +247,9 @@ class Orchestrator(private val context: Context) {
                 action = action,
                 situation = contextEngine.getCurrentContext(),
                 result = when (result) {
-                    ActionResult.SUCCESS -> DecisionResult.SUCCESS
-                    ActionResult.PARTIAL -> DecisionResult.PARTIAL
-                    ActionResult.FAILURE -> DecisionResult.FAILURE
+                    ActionResult.SUCCESS -> MemoryDecisionResult.SUCCESS
+                    ActionResult.PARTIAL -> MemoryDecisionResult.PARTIAL
+                    ActionResult.FAILURE -> MemoryDecisionResult.FAILURE
                 }
             )
         )
@@ -429,12 +445,30 @@ enum class MissionState {
 
 enum class ActionResult { SUCCESS, PARTIAL, FAILURE }
 
+// Alias para compatibilidad
+typealias DecisionResult = MemoryDecisionResult
+
 data class EnemyInfo(
     val id: String,
     val position: Position,
     val health: Float,
     val distance: Float
 )
+
+data class Position(val x: Float, val y: Float, val z: Float = 0f)
+
+// Stub classes for engines (implementations to be added)
+class ReflexEngine {
+    fun decide(context: SituationContext): Decision? = null
+}
+
+class TacticalEngine {
+    fun decide(context: SituationContext): Decision? = null
+}
+
+class StrategicEngine {
+    fun decide(context: SituationContext): Decision? = null
+}
 
 data class OrchestratorStats(
     val isRunning: Boolean,

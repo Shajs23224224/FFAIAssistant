@@ -460,18 +460,19 @@ class AdvancedAICore(
         return when (type) {
             ActionType.AIM -> Action.aim(360, 800)
             ActionType.SHOOT -> Action.shoot()
-            ActionType.MOVE_FORWARD -> Action.move(0f, -1f)
-            ActionType.MOVE_BACKWARD -> Action.move(0f, 1f)
-            ActionType.MOVE_LEFT -> Action.move(-1f, 0f)
-            ActionType.MOVE_RIGHT -> Action.move(1f, 0f)
+            ActionType.MOVE_FORWARD -> Action(ActionType.MOVE_FORWARD, 0, 0, duration = 300)
+            ActionType.MOVE_BACKWARD -> Action(ActionType.MOVE_BACKWARD, 0, 0, duration = 300)
+            ActionType.MOVE_LEFT -> Action(ActionType.MOVE_LEFT, 0, 0, duration = 300)
+            ActionType.MOVE_RIGHT -> Action(ActionType.MOVE_RIGHT, 0, 0, duration = 300)
             ActionType.HEAL -> Action.heal()
             ActionType.RELOAD -> Action.reload()
             ActionType.CROUCH -> Action.crouch()
             ActionType.JUMP -> Action.jump()
             ActionType.LOOT -> Action.loot()
             ActionType.REVIVE -> Action.revive()
+            ActionType.ROTATE_LEFT -> Action(ActionType.ROTATE_LEFT, duration = 200)
+            ActionType.ROTATE_RIGHT -> Action(ActionType.ROTATE_RIGHT, duration = 200)
             ActionType.HOLD -> Action.hold()
-            else -> Action.hold()
         }
     }
 

@@ -79,8 +79,8 @@ class ScreenCaptureService : Service() {
     private var lastFpsTime = 0L
     private var currentFps = 0
     
-    // SocketIO integration
-    private lateinit var binaryStreamManager: BinaryStreamManager
+    // SocketIO integration - disabled (classes not available)
+    // private lateinit var binaryStreamManager: BinaryStreamManager
     private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
@@ -346,7 +346,8 @@ class ScreenCaptureService : Service() {
                         putExtra("bitmap", bitmap)
                     })
                     
-                    // Enviar frame al servidor via SocketIO (si está conectado)
+                    // SocketIO envío deshabilitado - implementar cuando SocketIOManager esté disponible
+                    /*
                     coroutineScope.launch {
                         try {
                             val socketManager = SocketIOManager.getInstance()
@@ -357,6 +358,7 @@ class ScreenCaptureService : Service() {
                             Logger.e("ScreenCaptureService: Error enviando frame por SocketIO", e)
                         }
                     }
+                    */
                 }
             } catch (e: Exception) {
                 Logger.e("ScreenCaptureService: Error procesando imagen", e)

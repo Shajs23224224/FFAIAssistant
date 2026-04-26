@@ -63,7 +63,7 @@ class ConfidenceEngine {
     private val correctDecisions = AtomicInteger(0)
     
     // Historial reciente para análisis de consistencia
-    private val decisionHistory = ConcurrentLinkedQueue<DecisionRecord>()
+    private val decisionHistory = ConcurrentLinkedQueue<InternalDecisionRecord>()
     private val killHistory = ConcurrentLinkedQueue<KillRecord>()
     
     // Estado del modo
@@ -222,7 +222,7 @@ class ConfidenceEngine {
             correctDecisions.incrementAndGet()
         }
         
-        decisionHistory.add(DecisionRecord(
+        decisionHistory.add(InternalDecisionRecord(
             timestamp = System.currentTimeMillis(),
             action = decision,
             result = result
@@ -446,7 +446,7 @@ data class ConfidenceStats(
         totalFriendlyFire.toFloat() / (totalKills + totalFriendlyFire) else 0f
 }
 
-private data class DecisionRecord(
+private data class InternalDecisionRecord(
     val timestamp: Long,
     val action: ActionType,
     val result: DecisionResult

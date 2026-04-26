@@ -377,7 +377,7 @@ class GestureSystem(private val service: AccessibilityService) {
                         )
                     }
                     CurveType.EASE_IN_OUT -> {
-                        val easedT = if (t < 0.5f) 2 * t * t else 1 - kotlin.math.pow((-2 * t + 2).toDouble(), 2.0).toFloat() / 2
+                        val easedT = if (t < 0.5f) 2 * t * t else 1 - (2 - 2 * t) * (2 - 2 * t) / 2
                         Pair(
                             startX + (endX - startX) * easedT,
                             startY + (endY - startY) * easedT
@@ -413,11 +413,11 @@ class GestureSystem(private val service: AccessibilityService) {
                 EasingFunction.EASE_IN_QUAD -> t * t
                 EasingFunction.EASE_OUT_QUAD -> 1 - (1 - t) * (1 - t)
                 EasingFunction.EASE_IN_OUT_QUAD -> 
-                    if (t < 0.5f) 2 * t * t else 1 - kotlin.math.pow((-2 * t + 2).toDouble(), 2.0).toFloat() / 2
+                    if (t < 0.5f) 2 * t * t else 1 - (2 - 2 * t) * (2 - 2 * t) / 2
                 EasingFunction.EASE_IN_CUBIC -> t * t * t
-                EasingFunction.EASE_OUT_CUBIC -> 1 - kotlin.math.pow((1 - t).toDouble(), 3.0).toFloat()
+                EasingFunction.EASE_OUT_CUBIC -> 1 - (1 - t) * (1 - t) * (1 - t)
                 EasingFunction.EASE_IN_OUT_CUBIC -> 
-                    if (t < 0.5f) 4 * t * t * t else 1 - kotlin.math.pow((-2 * t + 2).toDouble(), 3.0).toFloat() / 2
+                    if (t < 0.5f) 4 * t * t * t else 1 - (2 - 2 * t) * (2 - 2 * t) * (2 - 2 * t) / 2
             }
         }
     }

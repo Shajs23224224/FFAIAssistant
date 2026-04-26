@@ -357,11 +357,9 @@ class EnemyPredictor(private val memory: HierarchicalMemorySystem) {
         val model = getOrCreateModel(enemyId)
         model.updatePosition(position, timestamp)
         
-        // Actualizar memoria
-        memory.shortTerm.updateEnemyPosition(
-            com.ffai.assistant.memory.EnemyId(enemyId.id),
-            com.ffai.assistant.memory.Position(position.x, position.y)
-        )
+        // Actualizar memoria - usando tipos locales (desacoplado de memory por ahora)
+        // TODO: Implementar adaptador si se necesita integración con HierarchicalMemorySystem
+        // memory.shortTerm.updateEnemyPosition(...)
     }
     
     fun recordEnemyAction(enemyId: EnemyId, action: EnemyAction) {

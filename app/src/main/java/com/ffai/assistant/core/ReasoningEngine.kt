@@ -357,14 +357,8 @@ class ReasoningEngine(
 }
 
 // ============================================
-// ENUMS Y DATA CLASSES
+// DATA CLASSES
 // ============================================
-
-enum class ReasoningMode {
-    SHORT,   // <8ms, instinto
-    MEDIUM,  // 15-30ms, táctico
-    LONG     // 50-80ms, estratégico
-}
 
 data class ReasoningStats(
     val currentMode: ReasoningMode,

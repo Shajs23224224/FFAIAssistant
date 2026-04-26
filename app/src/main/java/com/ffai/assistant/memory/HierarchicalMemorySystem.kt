@@ -1,7 +1,6 @@
 package com.ffai.assistant.memory
 
 import com.ffai.assistant.action.Action
-import com.ffai.assistant.core.DecisionRecord
 import com.ffai.assistant.utils.Logger
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -140,14 +139,6 @@ class HierarchicalMemorySystem {
             return mapKnowledge.getOrPut(mapId) { MapKnowledge(mapId) }
         }
     }
-
-    // ============================================
-    // INSTANCIAS
-    // ============================================
-    val ultrashort = UltrashortMemory()
-    val shortTerm = ShortTermMemory()
-    val mediumTerm = MediumTermMemory()
-    val longTerm = LongTermMemory()
 
     // Sistema de indexación para recuperación O(1)
     private val contextIndex = ConcurrentHashMap<SituationFingerprint, MutableList<MemoryReference>>()
