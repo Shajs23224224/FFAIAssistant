@@ -4,11 +4,10 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.graphics.Bitmap
 import com.ffai.assistant.action.Action
-import com.ffai.assistant.action.ActionController
-import com.ffai.assistant.action.ActionType
 import com.ffai.assistant.action.CameraController
 import com.ffai.assistant.action.GestureController
 import com.ffai.assistant.action.SmartAimTrainer
+import com.ffai.assistant.model.ActionType
 import com.ffai.assistant.config.GameConfig
 import com.ffai.assistant.model.ActionSuggestion
 import com.ffai.assistant.model.EnsembleResult
@@ -17,6 +16,7 @@ import com.ffai.assistant.model.ModelEnsembleManager
 import com.ffai.assistant.model.ReasoningMode
 import com.ffai.assistant.model.StrategicEnsembleResult
 import com.ffai.assistant.model.TacticalEnsembleResult
+import com.ffai.assistant.core.DecisionResult
 import com.ffai.assistant.navigation.MapInterpreter
 import com.ffai.assistant.overlay.AnalysisArea
 import com.ffai.assistant.overlay.DynamicOverlayService
@@ -307,7 +307,7 @@ class AdvancedAICore(
                 val compensation = smartAimTrainer.calculateCompensation()
                 if (!compensation.shouldStopBurst()) {
                     // Ejecutar disparo
-                    gestureController.execute(Action.shoot())
+                    gestureController.execute(com.ffai.assistant.action.Action.shoot())
                     
                     // Aplicar compensación
                     cameraController.rotate(compensation.compensationX, compensation.compensationY)
@@ -324,19 +324,19 @@ class AdvancedAICore(
             }
             
             ActionType.HEAL -> {
-                gestureController.execute(Action.heal())
+                gestureController.execute(com.ffai.assistant.action.Action.heal())
             }
             
             ActionType.RELOAD -> {
-                gestureController.execute(Action.reload())
+                gestureController.execute(com.ffai.assistant.action.Action.reload())
             }
             
             ActionType.CROUCH -> {
-                gestureController.execute(Action.crouch())
+                gestureController.execute(com.ffai.assistant.action.Action.crouch())
             }
             
             ActionType.JUMP -> {
-                gestureController.execute(Action.jump())
+                gestureController.execute(com.ffai.assistant.action.Action.jump())
             }
             
             ActionType.ROTATE_LEFT, ActionType.ROTATE_RIGHT -> {
@@ -578,114 +578,3 @@ data class AdvancedAIStats(
     val rlStats: com.ffai.assistant.rl.DeepRLStats,
     val rewardStats: com.ffai.assistant.rl.RewardStats
 )
-
-// Extensiones para Action
-private fun Action.Companion.aim(x: Int, y: Int): Action {
-    return Action(
-        type = com.ffai.assistant.action.ActionType.AIM,
-        x = x,
-        y = y,
-        confidence = 1f,
-        duration = 100,
-        timestamp = System.currentTimeMillis()
-    )
-}
-
-private fun Action.Companion.shoot(): Action {
-    return Action(
-        type = com.ffai.assistant.action.ActionType.SHOOT,
-        x = 0,
-        y = 0,
-        confidence = 1f,
-        duration = 50,
-        timestamp = System.currentTimeMillis()
-    )
-}
-
-private fun Action.Companion.move(dx: Float, dy: Float): Action {
-    return Action(
-        type = com.ffai.assistant.action.ActionType.MOVE_FORWARD,
-        x = 0,
-        y = 0,
-        confidence = kotlin.math.abs(dx).coerceAtLeast(kotlin.math.abs(dy)),
-        duration = 200,
-        timestamp = System.currentTimeMillis()
-    )
-}
-
-private fun Action.Companion.heal(): Action {
-    return Action(
-        type = com.ffai.assistant.action.ActionType.HEAL,
-        x = 0,
-        y = 0,
-        confidence = 1f,
-        duration = 500,
-        timestamp = System.currentTimeMillis()
-    )
-}
-
-private fun Action.Companion.reload(): Action {
-    return Action(
-        type = com.ffai.assistant.action.ActionType.RELOAD,
-        x = 0,
-        y = 0,
-        confidence = 1f,
-        duration = 1000,
-        timestamp = System.currentTimeMillis()
-    )
-}
-
-private fun Action.Companion.crouch(): Action {
-    return Action(
-        type = com.ffai.assistant.action.ActionType.CROUCH,
-        x = 0,
-        y = 0,
-        confidence = 1f,
-        duration = 200,
-        timestamp = System.currentTimeMillis()
-    )
-}
-
-private fun Action.Companion.jump(): Action {
-    return Action(
-        type = com.ffai.assistant.action.ActionType.JUMP,
-        x = 0,
-        y = 0,
-        confidence = 1f,
-        duration = 300,
-        timestamp = System.currentTimeMillis()
-    )
-}
-
-private fun Action.Companion.loot(): Action {
-    return Action(
-        type = com.ffai.assistant.action.ActionType.LOOT,
-        x = 0,
-        y = 0,
-        confidence = 1f,
-        duration = 1000,
-        timestamp = System.currentTimeMillis()
-    )
-}
-
-private fun Action.Companion.revive(): Action {
-    return Action(
-        type = com.ffai.assistant.action.ActionType.REVIVE,
-        x = 0,
-        y = 0,
-        confidence = 1f,
-        duration = 3000,
-        timestamp = System.currentTimeMillis()
-    )
-}
-
-private fun Action.Companion.hold(): Action {
-    return Action(
-        type = com.ffai.assistant.action.ActionType.HOLD,
-        x = 0,
-        y = 0,
-        confidence = 0.5f,
-        duration = 0,
-        timestamp = System.currentTimeMillis()
-    )
-}

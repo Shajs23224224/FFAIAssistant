@@ -6,6 +6,9 @@ import com.ffai.assistant.perception.RiskAssessor
 import com.ffai.assistant.perception.TacticalWorldModel
 import com.ffai.assistant.perception.ThreatLevel
 import com.ffai.assistant.perception.TacticalPriority
+import com.ffai.assistant.perception.Vector2D
+import com.ffai.assistant.perception.EnemyInfo
+import com.ffai.assistant.perception.CoverInfo
 import com.ffai.assistant.utils.Logger
 
 /**
@@ -565,12 +568,4 @@ class FastTacticalEngine(
         val recentActions: List<ActionType>,
         val lastPriority: TacticalPriority
     )
-    
-    // Helper
-    private fun Vector2D.normalize(): Vector2D {
-        val mag = kotlin.math.hypot(x, y)
-        return if (mag > 0.01f) Vector2D(x / mag, y / mag) else Vector2D(0f, 0f)
-    }
 }
-
-private data class Vector2D(val x: Float, val y: Float)

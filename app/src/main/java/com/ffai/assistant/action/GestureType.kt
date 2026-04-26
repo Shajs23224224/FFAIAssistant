@@ -141,7 +141,7 @@ data class GestureCommand(
     val type: GestureType,
     val pointers: List<TouchPointer>,
     val durationMs: Long = 100L,
-    val priority: Int = type.priority,
+    val priority: Int = 5,
     val tag: String = ""
 ) {
     /**

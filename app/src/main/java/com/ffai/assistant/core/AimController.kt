@@ -79,7 +79,7 @@ class AimController(
         val radius = gameConfig.joystickRadius
         gestureController.executeCommand(
             com.ffai.assistant.action.GestureCommand(
-                type = com.ffai.assistant.action.GestureType.HOLD_DRAG,
+                type = com.ffai.assistant.action.GestureType.DRAG,
                 pointers = listOf(
                     com.ffai.assistant.action.TouchPointer(
                         id = 1,
