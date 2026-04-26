@@ -1,7 +1,7 @@
 package com.ffai.assistant.core
 
 import com.ffai.assistant.model.ActionSuggestion
-import com.ffai.assistant.model.ActionType
+import com.ffai.assistant.action.ActionType
 import com.ffai.assistant.model.EnsembleResult
 import com.ffai.assistant.model.FastEnsembleResult
 import com.ffai.assistant.core.ReasoningMode

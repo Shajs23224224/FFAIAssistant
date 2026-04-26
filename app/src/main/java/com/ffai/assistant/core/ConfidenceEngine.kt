@@ -1,6 +1,6 @@
 package com.ffai.assistant.core
 
-import com.ffai.assistant.model.ActionType
+import com.ffai.assistant.action.ActionType
 import com.ffai.assistant.model.EnsembleResult
 import com.ffai.assistant.utils.Logger
 import java.util.concurrent.ConcurrentLinkedQueue
