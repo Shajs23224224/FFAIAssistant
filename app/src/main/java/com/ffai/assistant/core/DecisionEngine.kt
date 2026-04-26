@@ -175,9 +175,10 @@ class DecisionEngine(
         tacticalEngine?.reset()
         fastTacticalEngine?.reset()
         strategicEngine?.reset()
-        worldModel?.reset()
-        tacticalMemory?.reset()
-        performanceMonitor?.reset()
+        // TODO: Agregar métodos reset a estos componentes
+        // worldModel?.reset()
+        // tacticalMemory?.reset()
+        // performanceMonitor?.reset()
         aimController.stopAiming()
         Logger.i("DecisionEngine V2: Reset completo")
     }
@@ -193,7 +194,9 @@ class DecisionEngine(
      * Obtiene summary del world model si está disponible.
      */
     fun getWorldModelSummary(): String? {
-        return worldModel?.getSummary()
+        // TODO: Implementar getSummary en TacticalWorldModel
+        return "WorldModel summary not available"
+        // return worldModel?.getSummary()
     }
 
     private fun logStats(source: String, action: Action, latencyMs: Long) {

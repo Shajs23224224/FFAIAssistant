@@ -238,7 +238,7 @@ class AdvancedAICore(
         
         // 5. Aprendizaje RL
         val state = result?.let { deepRLCore.encodeState(it) } ?: FloatArray(256) { 0f }
-        val action = deepRLCore.actionToType(selectedAction.type).ordinal
+        val action = selectedAction.type.ordinal
         
         // Calcular recompensa
         val reward = rewardShaper.calculateReward(
