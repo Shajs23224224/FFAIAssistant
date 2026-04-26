@@ -7,7 +7,7 @@ import com.ffai.assistant.action.Action
 import com.ffai.assistant.action.CameraController
 import com.ffai.assistant.action.GestureController
 import com.ffai.assistant.action.SmartAimTrainer
-import com.ffai.assistant.model.ActionType
+import com.ffai.assistant.action.ActionType
 import com.ffai.assistant.config.GameConfig
 import com.ffai.assistant.model.ActionSuggestion
 import com.ffai.assistant.model.EnsembleResult
@@ -497,7 +497,7 @@ class AdvancedAICore(
             rewardShaper.calculateReward(
                 lastEnsembleResult.get(),
                 lastEnsembleResult.get() ?: return,
-                com.ffai.assistant.model.ActionType.SHOOT,
+                com.ffai.assistant.action.ActionType.SHOOT,
                 System.currentTimeMillis()
             )
         } else {
