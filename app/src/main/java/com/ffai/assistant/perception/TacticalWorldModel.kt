@@ -464,6 +464,11 @@ data class Vector2D(val x: Float, val y: Float) {
     fun distanceTo(other: Vector2D): Float {
         return kotlin.math.hypot(x - other.x, y - other.y)
     }
+    
+    fun normalize(): Vector2D {
+        val len = kotlin.math.hypot(x, y)
+        return if (len > 0) Vector2D(x / len, y / len) else Vector2D(0f, 0f)
+    }
 }
 
 data class Vector3D(val x: Float, val y: Float, val z: Float) {
@@ -476,6 +481,11 @@ data class Vector3D(val x: Float, val y: Float, val z: Float) {
     }
     
     fun to2D(): Vector2D = Vector2D(x, y)
+    
+    fun normalize(): Vector3D {
+        val len = kotlin.math.sqrt(x * x + y * y + z * z)
+        return if (len > 0) Vector3D(x / len, y / len, z / len) else Vector3D(0f, 0f, 0f)
+    }
 }
 
 data class EnemyInfo(

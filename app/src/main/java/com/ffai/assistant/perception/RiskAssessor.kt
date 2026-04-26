@@ -293,7 +293,7 @@ class RiskAssessor(private val worldModel: TacticalWorldModel) {
     /**
      * Calcula viabilidad de ir a un punto específico.
      */
-    fun assessRouteViability(destination: Vector3D): RouteViability {
+    fun assessRouteViability(destination: Vector3D): RouteViabilityAssessment {
         val currentPos = worldModel.playerPosition
         val distance = currentPos.distanceTo(destination)
         
