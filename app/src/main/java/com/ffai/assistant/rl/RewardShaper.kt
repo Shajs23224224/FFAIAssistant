@@ -1,5 +1,6 @@
 package com.ffai.assistant.rl
 
+import com.ffai.assistant.action.ActionType
 import com.ffai.assistant.model.EnsembleResult
 import com.ffai.assistant.model.KillEvent
 import com.ffai.assistant.utils.Logger

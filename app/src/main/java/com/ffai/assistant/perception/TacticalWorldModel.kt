@@ -381,7 +381,7 @@ class TacticalWorldModel {
     private fun detectWeaponType(gameState: GameState): WeaponInfo {
         // Heurísticas basadas en comportamiento
         return when {
-            gameState.isAiming && gameState.currentWeapon == WeaponType.SNIPER_RIFLE -> WeaponInfo.SNIPER
+            gameState.isAiming && gameState.currentWeapon == WeaponType.SNIPER -> WeaponInfo.SNIPER
             currentAmmo <= 25 && currentWeapon == WeaponInfo.SHOTGUN -> WeaponInfo.SHOTGUN
             currentAmmo <= 35 -> WeaponInfo.SMG
             else -> WeaponInfo.AR

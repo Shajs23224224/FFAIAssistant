@@ -433,9 +433,9 @@ class StrategicEngine(
         // Calcular si algún enemigo podría ver esa posición
         var risk = 0f
         for (enemyPos in recentPositions) {
-            val distance = enemyPos.distance(position)
-            if (distance < 0.5f) {
-                risk += (0.5f - distance) * 100
+            val dist = enemyPos.distanceTo(position)
+            if (dist < 0.5f) {
+                risk += (0.5f - dist) * 100
             }
         }
         
@@ -586,9 +586,9 @@ enum class StrategicPriority {
 
 // Helpers
 private fun Vector3D.isBetween(start: Vector3D, end: Vector3D, threshold: Float): Boolean {
-    val distToStart = this.distance(start)
-    val distToEnd = this.distance(end)
-    val startToEnd = start.distance(end)
+    val distToStart = this.distanceTo(start)
+    val distToEnd = this.distanceTo(end)
+    val startToEnd = start.distanceTo(end)
     return kotlin.math.abs(distToStart + distToEnd - startToEnd) < threshold
 }
 
