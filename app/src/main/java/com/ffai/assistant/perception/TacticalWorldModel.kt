@@ -190,8 +190,8 @@ class TacticalWorldModel {
      */
     fun updateFromGameState(gameState: GameState) {
         // Actualizar salud y estado
-        playerHealth = gameState.health * 100f
-        playerShield = gameState.shield * 100f
+        playerHealth = gameState.healthRatio * 100f
+        playerShield = if (gameState.hasArmor) 100f else 0f
         
         // Actualizar armas y munición
         currentWeapon = detectWeaponType(gameState)
@@ -219,11 +219,15 @@ class TacticalWorldModel {
      * Actualiza información de enemigo desde GameState.
      */
     private fun updateEnemyFromGameState(gameState: GameState) {
+        // Convertir coordenadas normalizadas (-1 a 1) a coordenadas de pantalla (0-1080, 0-2400)
+        val screenX = ((gameState.enemyX + 1f) / 2f * 1080f).coerceIn(0f, 1080f)
+        val screenY = ((gameState.enemyY + 1f) / 2f * 2400f).coerceIn(0f, 2400f)
+        
         val enemy = EnemyInfo(
             id = "current_target",
             position = Vector3D(gameState.enemyX, gameState.enemyY, 0f),
-            screenX = gameState.enemyScreenX,
-            screenY = gameState.enemyScreenY,
+            screenX = screenX,
+            screenY = screenY,
             healthEstimate = 100f, // Desconocido
             distanceEstimate = gameState.enemyDistance,
             isVisible = true,
