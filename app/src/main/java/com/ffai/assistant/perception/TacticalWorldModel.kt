@@ -387,8 +387,6 @@ class TacticalWorldModel {
             else -> WeaponInfo.AR
         }
     }
-        }
-    }
     
     /**
      * Limpia información de enemigos antiguos.
@@ -448,6 +446,8 @@ data class Vector2D(val x: Float, val y: Float) {
     fun distanceTo(other: Vector2D): Float {
         return kotlin.math.hypot(x - other.x, y - other.y)
     }
+    
+    fun distance(other: Vector2D): Float = distanceTo(other)
     
     fun normalize(): Vector2D {
         val len = kotlin.math.hypot(x, y)

@@ -45,7 +45,7 @@ class CombatNet(private val context: Context) {
             val model = loadModelFile(context, MODEL_NAME)
             interpreter = Interpreter(model, Interpreter.Options().apply {
                 setNumThreads(2)
-                useNNAPI(false) // Deshabilitar NNAPI para compatibilidad
+                // // useNNAPI(false) // Deshabilitado: no soportado en esta versión // Deshabilitado: no soportado en esta versión de TFLite
             })
             isLoaded = true
             Logger.i(TAG, "CombatNet cargado: ${INPUT_SIZE}x${INPUT_SIZE}")
@@ -198,7 +198,7 @@ class TacticalNet(private val context: Context) {
             val model = loadModelFile(context, MODEL_NAME)
             interpreter = Interpreter(model, Interpreter.Options().apply {
                 setNumThreads(2)
-                useNNAPI(false) // Deshabilitar NNAPI para compatibilidad A21S
+                // useNNAPI(false) // Deshabilitado: no soportado en esta versión // Deshabilitar NNAPI para compatibilidad A21S
             })
             isLoaded = true
             Logger.i(TAG, "TacticalNet cargado")
@@ -297,7 +297,7 @@ class StrategyNet(private val context: Context) {
             val model = loadModelFile(context, MODEL_NAME)
             interpreter = Interpreter(model, Interpreter.Options().apply {
                 setNumThreads(2)
-                useNNAPI(false)
+                // useNNAPI(false) // Deshabilitado: no soportado en esta versión
             })
             isLoaded = true
             Logger.i(TAG, "StrategyNet cargado")
@@ -360,7 +360,7 @@ class VisionNet(private val context: Context) {
             val model = loadModelFile(context, MODEL_NAME)
             interpreter = Interpreter(model, Interpreter.Options().apply {
                 setNumThreads(2)
-                useNNAPI(false)
+                // useNNAPI(false) // Deshabilitado: no soportado en esta versión
             })
             isLoaded = true
             Logger.i(TAG, "VisionNet cargado")
@@ -433,7 +433,7 @@ class UINet(private val context: Context) {
             val model = loadModelFile(context, MODEL_NAME)
             interpreter = Interpreter(model, Interpreter.Options().apply {
                 setNumThreads(2)
-                useNNAPI(false)
+                // useNNAPI(false) // Deshabilitado: no soportado en esta versión
             })
             isLoaded = true
             Logger.i(TAG, "UINet cargado")
@@ -498,7 +498,7 @@ class MapNet(private val context: Context) {
             val model = loadModelFile(context, MODEL_NAME)
             interpreter = Interpreter(model, Interpreter.Options().apply {
                 setNumThreads(2)
-                useNNAPI(false)
+                // useNNAPI(false) // Deshabilitado: no soportado en esta versión
             })
             isLoaded = true
             Logger.i(TAG, "MapNet cargado")
@@ -554,7 +554,7 @@ class RecoilNet(private val context: Context) {
             val model = loadModelFile(context, MODEL_NAME)
             interpreter = Interpreter(model, Interpreter.Options().apply {
                 setNumThreads(2)
-                useNNAPI(false)
+                // useNNAPI(false) // Deshabilitado: no soportado en esta versión
             })
             isLoaded = true
             Logger.i(TAG, "RecoilNet cargado")
@@ -617,7 +617,7 @@ class ConfidenceNet(private val context: Context) {
             val model = loadModelFile(context, MODEL_NAME)
             interpreter = Interpreter(model, Interpreter.Options().apply {
                 setNumThreads(2)
-                useNNAPI(false)
+                // useNNAPI(false) // Deshabilitado: no soportado en esta versión
             })
             isLoaded = true
             Logger.i(TAG, "ConfidenceNet cargado")
