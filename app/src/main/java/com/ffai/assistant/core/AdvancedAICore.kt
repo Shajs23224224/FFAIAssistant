@@ -13,7 +13,7 @@ import com.ffai.assistant.model.ActionSuggestion
 import com.ffai.assistant.model.EnsembleResult
 import com.ffai.assistant.model.FastEnsembleResult
 import com.ffai.assistant.model.ModelEnsembleManager
-import com.ffai.assistant.model.ReasoningMode
+import com.ffai.assistant.core.ReasoningMode
 import com.ffai.assistant.model.StrategicEnsembleResult
 import com.ffai.assistant.model.TacticalEnsembleResult
 import com.ffai.assistant.core.DecisionResult

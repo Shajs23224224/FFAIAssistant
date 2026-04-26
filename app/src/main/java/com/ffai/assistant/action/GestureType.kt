@@ -3,34 +3,31 @@ package com.ffai.assistant.action
 /**
  * Tipos de gesto soportados por el controlador.
  * Cada tipo define un patrón de interacción táctil diferente.
+ * Unificación de todos los gestos del sistema.
  */
 enum class GestureType(val priority: Int) {
-    // Toque simple y rápido
-    TAP(5),
-
-    // Mantener presionado sin mover (ej: botón de habilidad)
-    HOLD(4),
-
-    // Deslizar de un punto a otro (ej: swipe para cambiar arma)
-    DRAG(3),
-
-    // Mantener presionado y luego deslizar (ej: joystick)
-    HOLD_DRAG(2),
-
-    // Swipe rápido (ej: cambiar arma deslizando)
-    SWIPE(3),
-
-    // Múltiples dedos simultáneos (ej: mover + apuntar + disparar)
-    MULTI_TOUCH(1),
-
-    // Drag que continúa de un frame anterior (sin levantar dedo)
-    CONTINUOUS_DRAG(2);
+    // Gestos básicos (usados por GestureController y GestureSystem)
+    TAP(5),           // Toque simple
+    SINGLE_TAP(5),    // Sinónimo de TAP
+    HOLD(4),          // Mantener presionado
+    DRAG(3),          // Arrastrar (mover sin levantar)
+    HOLD_DRAG(2),     // Mantener + arrastrar
+    DRAG_HOLD(2),     // Sinónimo de HOLD_DRAG
+    SWIPE(3),         // Deslizar rápido
+    CAMERA_SWIPE(3),  // Deslizar para cámara
+    MULTI_TOUCH(1),   // Múltiples dedos
+    CONTINUOUS_DRAG(2),  // Arrastre continuo
+    
+    // Gestos compuestos avanzados
+    DOUBLE_TAP(4),    // Doble toque
+    TRIPLE_TAP(3),    // Triple toque
+    COMBO(1);         // Combinación de gestos
 
     /**
      * True si el gesto requiere mantener presionado
      */
     val requiresHold: Boolean
-        get() = this == HOLD || this == HOLD_DRAG
+        get() = this == HOLD || this == HOLD_DRAG || this == DRAG_HOLD
 
     /**
      * True si el gesto involucra movimiento

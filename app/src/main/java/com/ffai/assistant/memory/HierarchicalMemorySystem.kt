@@ -1,6 +1,7 @@
 package com.ffai.assistant.memory
 
 import com.ffai.assistant.action.Action
+import com.ffai.assistant.core.DecisionRecord
 import com.ffai.assistant.utils.Logger
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -11,6 +12,11 @@ import java.util.concurrent.atomic.AtomicLong
  * Optimizado para Samsung A21S - Recuperación O(1) por contexto
  */
 class HierarchicalMemorySystem {
+    // Capas de memoria accesibles desde fuera
+    val ultrashort = UltrashortMemory()
+    val shortTerm = ShortTermMemory()
+    val mediumTerm = MediumTermMemory()
+    val longTerm = LongTermMemory()
 
     companion object {
         const val TAG = "HierarchicalMemory"
@@ -27,6 +33,7 @@ class HierarchicalMemorySystem {
     // ============================================
     class UltrashortMemory {
         val recentActions = CircularBuffer<Action>(MAX_ULTRASHORT_ACTIONS)
+        val recentDecisions = CircularBuffer<DecisionRecord>(50)
         val immediateThreats = ConcurrentLinkedQueue<Threat>()
         val frameSequence = CircularBuffer<FrameContext>(30)
         val currentAimTrajectory = TrajectoryBuffer()
@@ -34,6 +41,10 @@ class HierarchicalMemorySystem {
         // Tiempo de vida: milisegundos a segundos
         fun addAction(action: Action) {
             recentActions.add(action)
+        }
+        
+        fun recordDecision(decision: DecisionRecord) {
+            recentDecisions.add(decision)
         }
         
         fun addThreat(threat: Threat) {

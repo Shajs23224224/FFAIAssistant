@@ -28,8 +28,6 @@ import androidx.core.app.NotificationCompat
 import com.ffai.assistant.MainActivity
 import com.ffai.assistant.R
 import com.ffai.assistant.config.Constants
-import com.ffai.assistant.network.BinaryStreamManager
-import com.ffai.assistant.network.SocketIOManager
 import com.ffai.assistant.utils.Logger
 import kotlinx.coroutines.*
 import java.nio.ByteBuffer
