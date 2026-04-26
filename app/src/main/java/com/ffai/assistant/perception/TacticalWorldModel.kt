@@ -387,22 +387,6 @@ class TacticalWorldModel {
             else -> WeaponInfo.AR
         }
     }
-    
-    /**
-     * Agrega una posición de cobertura.
-     */
-    fun addCoverPosition(position: Vector3D, quality: Float, isSolid: Boolean = true) {
-        coverPositions.add(CoverInfo(
-            position = position,
-            quality = quality,
-            isSolid = isSolid,
-            distance = playerPosition.distanceTo(position)
-        ))
-        
-        // Actualizar más cercana
-        if (coverPositions.last().distance < distanceToNearestCover) {
-            nearestCover = coverPositions.last()
-            distanceToNearestCover = coverPositions.last().distance
         }
     }
     

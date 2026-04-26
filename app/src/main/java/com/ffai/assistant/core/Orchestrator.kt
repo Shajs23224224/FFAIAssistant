@@ -4,6 +4,7 @@ import android.content.Context
 import com.ffai.assistant.action.Action
 import com.ffai.assistant.action.ActionType
 import com.ffai.assistant.memory.HierarchicalMemorySystem
+import com.ffai.assistant.perception.EnemyInfo
 import com.ffai.assistant.memory.HealthLevel
 import com.ffai.assistant.memory.ZoneStatus
 import com.ffai.assistant.memory.DecisionRecord

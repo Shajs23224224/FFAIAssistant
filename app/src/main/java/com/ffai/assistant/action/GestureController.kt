@@ -67,13 +67,14 @@ class GestureController(
         try {
             if (!isAccessibilityServiceEnabled()) return
             when (command.type) {
-                GestureType.TAP -> { val p = command.pointers.firstOrNull() ?: return; tap(p.currentX, p.currentY, command.durationMs) }
+                GestureType.TAP, GestureType.SINGLE_TAP -> { val p = command.pointers.firstOrNull() ?: return; tap(p.currentX, p.currentY, command.durationMs) }
                 GestureType.HOLD -> { val p = command.pointers.firstOrNull() ?: return; hold(p.currentX, p.currentY, command.durationMs) }
                 GestureType.DRAG -> { val p = command.pointers.firstOrNull() ?: return; drag(p.startX, p.startY, p.currentX, p.currentY, command.durationMs) }
-                GestureType.HOLD_DRAG -> { val p = command.pointers.firstOrNull() ?: return; holdAndDrag(p.startX, p.startY, p.currentX, p.currentY, command.durationMs) }
-                GestureType.SWIPE -> { val p = command.pointers.firstOrNull() ?: return; swipe(p.startX, p.startY, p.currentX, p.currentY, command.durationMs) }
+                GestureType.HOLD_DRAG, GestureType.DRAG_HOLD -> { val p = command.pointers.firstOrNull() ?: return; holdAndDrag(p.startX, p.startY, p.currentX, p.currentY, command.durationMs) }
+                GestureType.SWIPE, GestureType.CAMERA_SWIPE -> { val p = command.pointers.firstOrNull() ?: return; swipe(p.startX, p.startY, p.currentX, p.currentY, command.durationMs) }
                 GestureType.MULTI_TOUCH -> executeMultiTouch(command.pointers, command.durationMs)
                 GestureType.CONTINUOUS_DRAG -> { val p = command.pointers.firstOrNull() ?: return; continuousDrag(p.currentX, p.currentY, command.durationMs) }
+                GestureType.DOUBLE_TAP, GestureType.TRIPLE_TAP, GestureType.COMBO -> { /* TODO: Implementar */ }
             }
         } catch (e: Exception) {
             Logger.e("GestureController: Error ejecutando comando ${command.type}", e)

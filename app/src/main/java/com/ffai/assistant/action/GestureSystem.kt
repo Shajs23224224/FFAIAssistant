@@ -337,7 +337,7 @@ class GestureSystem(private val service: AccessibilityService) {
             return when (profile) {
                 PressureProfile.CONSTANT -> List(steps) { DEFAULT_PRESSURE }
                 PressureProfile.SINE_WAVE -> (0 until steps).map {
-                    0.5f + 0.3f * kotlin.math.sin(it * kotlin.math.PI / steps)
+                    0.5f + 0.3f * kotlin.math.sin(it * kotlin.math.PI / steps).toFloat()
                 }
                 PressureProfile.DECAY -> (0 until steps).map {
                     DEFAULT_PRESSURE * (1 - it / steps.toFloat() * 0.5f)
@@ -456,14 +456,15 @@ class GestureSystem(private val service: AccessibilityService) {
             
             try {
                 when (gesture.type) {
-                    GestureType.SINGLE_TAP -> executeTap(gesture)
+                    GestureType.TAP, GestureType.SINGLE_TAP -> executeTap(gesture)
                     GestureType.DOUBLE_TAP -> executeDoubleTap(gesture)
                     GestureType.TRIPLE_TAP -> executeTripleTap(gesture)
                     GestureType.HOLD -> executeHold(gesture)
-                    GestureType.SWIPE -> executeSwipe(gesture)
-                    GestureType.DRAG_HOLD -> executeDrag(gesture)
+                    GestureType.SWIPE, GestureType.CAMERA_SWIPE -> executeSwipe(gesture)
+                    GestureType.DRAG -> executeDrag(gesture)
+                    GestureType.HOLD_DRAG, GestureType.DRAG_HOLD -> executeDrag(gesture)
                     GestureType.MULTI_TOUCH -> executeMultiTouch(gesture)
-                    GestureType.CAMERA_SWIPE -> executeCameraSwipe(gesture)
+                    GestureType.CONTINUOUS_DRAG -> executeDrag(gesture)
                     GestureType.COMBO -> executeCombo(gesture)
                 }
             } catch (e: Exception) {

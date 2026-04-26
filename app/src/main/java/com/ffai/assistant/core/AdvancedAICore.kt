@@ -251,9 +251,14 @@ class AdvancedAICore(
                 visionOutput = null,
                 uiOutput = null,
                 confidence = 0.5f,
-                mergedEnemies = fastResult?.enemies?.map { 
+                mergedEnemies = fastResult?.enemies?.mapIndexed { index, it -> 
                     com.ffai.assistant.model.MergedEnemy(
-                        it.x, it.y, it.confidence, listOf("combat"), it.isLocked
+                        id = "enemy_${index}_${it.x.toInt()}_${it.y.toInt()}",
+                        x = it.x, 
+                        y = it.y, 
+                        confidence = it.confidence, 
+                        sources = listOf("combat"), 
+                        isLocked = it.isLocked
                     )
                 } ?: emptyList(),
                 suggestedAction = selectedAction,
@@ -554,7 +559,7 @@ class AdvancedAICore(
         screenAnalyzer.release()
         ensembleManager.release()
         deepRLCore.release()
-        gestureController.reset()
+        gestureController.resetAimPID()
         cameraController.reset()
         smartAimTrainer.reset()
         mapInterpreter.reset()
