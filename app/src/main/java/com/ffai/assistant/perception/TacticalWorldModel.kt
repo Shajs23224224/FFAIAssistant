@@ -347,7 +347,7 @@ class TacticalWorldModel {
         // Determinar prioridad
         suggestedPriority = when {
             immediateThreat == ThreatLevel.CRITICAL -> TacticalPriority.SURVIVE
-            playerHealth < 50f && inventory.hasHeals -> TacticalPriority.HEAL
+            playerHealth < 50f && inventory.healItems > 0 -> TacticalPriority.HEAL
             currentAmmo == 0 && totalAmmo > 0 -> TacticalPriority.RELOAD
             !isInSafeZone -> TacticalPriority.MOVE_TO_ZONE
             isAtDisadvantage -> TacticalPriority.RETREAT
@@ -381,7 +381,7 @@ class TacticalWorldModel {
     private fun detectWeaponType(gameState: GameState): WeaponInfo {
         // Heurísticas basadas en comportamiento
         return when {
-            gameState.isSniperScopeActive -> WeaponInfo.SNIPER
+            gameState.isAiming && gameState.currentWeapon == WeaponType.SNIPER_RIFLE -> WeaponInfo.SNIPER
             currentAmmo <= 25 && currentWeapon == WeaponInfo.SHOTGUN -> WeaponInfo.SHOTGUN
             currentAmmo <= 35 -> WeaponInfo.SMG
             else -> WeaponInfo.AR

@@ -362,7 +362,7 @@ class ModelEnsembleManager(
         }
         
         // Convertir clusters a merged enemies
-        return clusters.map { cluster ->
+        return clusters.mapIndexed { index, cluster ->
             val avgX = cluster.map { it.x }.average().toFloat()
             val avgY = cluster.map { it.y }.average().toFloat()
             val maxConfidence = cluster.maxOf { it.confidence }
@@ -370,6 +370,7 @@ class ModelEnsembleManager(
             val isLocked = cluster.any { it.isLocked }
             
             MergedEnemy(
+                id = "enemy_${index}_${avgX.toInt()}_${avgY.toInt()}",
                 x = avgX,
                 y = avgY,
                 confidence = (maxConfidence * (1 + sources.size * 0.1f)).coerceAtMost(1f),
@@ -515,6 +516,7 @@ data class StrategicEnsembleResult(
 )
 
 data class MergedEnemy(
+    val id: String,  // Identificador único del enemigo
     val x: Float,
     val y: Float,
     val confidence: Float,
