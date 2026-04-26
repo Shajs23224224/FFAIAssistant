@@ -42,7 +42,7 @@ class PrecisionGestureController(
         // Perfiles de velocidad
         val EASE_OUT_QUAD: (Float) -> Float = { t -> 1 - (1 - t) * (1 - t) }
         val EASE_IN_OUT_CUBIC: (Float) -> Float = { t ->
-            if (t < 0.5f) 4 * t * t * t else 1 - kotlin.math.pow((-2 * t + 2).toDouble(), 3.0).toFloat() / 2
+            if (t < 0.5f) 4 * t * t * t else 1 - 4 * (1 - t) * (1 - t) * (1 - t)
         }
         val LINEAR: (Float) -> Float = { t -> t }
     }
