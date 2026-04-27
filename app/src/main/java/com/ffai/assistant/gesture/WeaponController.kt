@@ -177,7 +177,7 @@ class WeaponController(private val gestureEngine: GestureEngine) {
             
             // Delay entre disparos
             if (i < 2) {
-                Thread.sleep(profile.fireRateMs)
+                Thread.sleep(profile.fireRateMs.toLong())
             }
         }
         
