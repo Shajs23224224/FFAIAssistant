@@ -358,8 +358,8 @@ class SACAgent(private val context: Context) {
      * Estadísticas.
      */
     fun getStats(): SACStats {
-        val avgQ = if (qValueHistory.isNotEmpty()) qValueHistory.average() else 0.0
-        val avgAlpha = if (alphaHistory.isNotEmpty()) alphaHistory.average() else 0.0
+        val avgQ = if (qValueHistory.isNotEmpty()) qValueHistory.average().toFloat() else 0f
+        val avgAlpha = if (alphaHistory.isNotEmpty()) alphaHistory.average().toFloat() else 0f
         
         return SACStats(
             trainingStep = trainingStep,
