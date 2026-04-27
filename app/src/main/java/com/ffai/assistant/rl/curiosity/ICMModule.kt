@@ -248,7 +248,12 @@ class ICMModule(private val context: Context) {
     }
     
     private fun calculateDistance(a: FloatArray, b: FloatArray): Float {
-        return kotlin.math.sqrt(a.zip(b).sumOf { (x, y) -> ((x - y) * (x - y)).toDouble() }.toFloat())
+        var sum = 0f
+        for (i in a.indices) {
+            val diff = a[i] - b[i]
+            sum += diff * diff
+        }
+        return kotlin.math.sqrt(sum)
     }
     
     private fun softmax(x: FloatArray): FloatArray {
@@ -258,7 +263,13 @@ class ICMModule(private val context: Context) {
     }
     
     private fun calculateEntropy(probs: FloatArray): Float {
-        return -probs.filter { it > 0 }.sumOf { p -> p * kotlin.math.ln(p.toDouble()) }.toFloat()
+        var sum = 0f
+        for (p in probs) {
+            if (p > 0) {
+                sum += p * kotlin.math.ln(p)
+            }
+        }
+        return -sum
     }
     
     private fun loadModel(name: String): Interpreter? = try {

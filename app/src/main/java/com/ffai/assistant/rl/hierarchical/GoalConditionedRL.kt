@@ -175,7 +175,12 @@ class GoalConditionedRL(
     )
     
     private fun euclideanDistance(a: FloatArray, b: FloatArray): Float {
-        return kotlin.math.sqrt(a.zip(b).sumOf { (x, y) -> ((x - y) * (x - y)).toDouble() }.toFloat())
+        var sum = 0f
+        for (i in a.indices) {
+            val diff = a[i] - b[i]
+            sum += diff * diff
+        }
+        return kotlin.math.sqrt(sum)
     }
 }
 

@@ -112,7 +112,13 @@ class PPOAgent(private val context: Context) {
         if (valueHistory.size > 100) valueHistory.removeFirst()
         
         // Calcular entropy
-        val entropy = -actionProbs.sumOf { p -> if (p > 0) (p * log(p)).toDouble() else 0.0 }.toFloat()
+        var entropySum = 0f
+        for (p in actionProbs) {
+            if (p > 0) {
+                entropySum += p * kotlin.math.ln(p)
+            }
+        }
+        val entropy = -entropySum
         entropyHistory.add(entropy)
         if (entropyHistory.size > 100) entropyHistory.removeFirst()
         
