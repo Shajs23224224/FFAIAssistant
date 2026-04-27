@@ -242,8 +242,8 @@ class AdvancedAICore(
         
         // Inicializar visión
         val yoloOk = yoloDetector.initialize()
-        val fusionOk = visionFusionEngine.initialize()
-        Logger.i(TAG, "YOLO: ${if(yoloOk) "OK" else "FAIL"}, Fusion: ${if(fusionOk) "OK" else "FAIL"}")
+        // VisionFusionEngine no requiere inicialización explícita
+        Logger.i(TAG, "YOLO: ${if(yoloOk) "OK" else "FAIL"}, Fusion: OK")
         
         // Fase 3: Ensemble RL Profesional
         Logger.i(TAG, "[FASE 3] Inicializando Ensemble RL (DQN+PPO+SAC)...")
@@ -269,7 +269,7 @@ class AdvancedAICore(
         performanceMonitor = PerformanceMonitor(coroutineScope)
         structuredLogger = StructuredLogger(context, coroutineScope)
         
-        performanceMonitor.startMonitoring()
+        performanceMonitor.startFrame()
         structuredLogger.startLogging()
         
         // ========== NUEVOS COMPONENTES REDES NEURONALES AVANZADAS (FASE 10-15) ==========
@@ -348,7 +348,7 @@ class AdvancedAICore(
         // Liberar nuevos componentes
         coroutineScope.launch {
             structuredLogger.stopLogging()
-            performanceMonitor.stopMonitoring()
+            performanceMonitor.endFrame()
         }
         
         yoloDetector.release()
@@ -728,7 +728,7 @@ class AdvancedAICore(
             rewardStats = rewardShaper.getStats(),
             yoloDetections = if (::yoloDetector.isInitialized) yoloDetector.getStats().totalDetections else 0,
             ensembleRLStats = if (::ensembleRL.isInitialized) ensembleRL.getStats() else null,
-            performanceMetrics = if (::performanceMonitor.isInitialized) performanceMonitor.getMetrics() else null
+            performanceMetrics = if (::performanceMonitor.isInitialized) performanceMonitor.getStats() else null
         )
     }
 
@@ -799,15 +799,20 @@ suspend fun processFrameEnhanced(bitmap: android.graphics.Bitmap) {
             combatOutput = null,
             visionOutput = null
         )
-        val state = buildStateVector(fusedEnemies, situationAnalyzer.analyze(fusedEnemies, 100, false, 60f, fusedEnemies.size))
+        val situation = situationAnalyzer.analyze(
+            enemies = fusedEnemies,
+            trackedObjects = emptyList(),
+            hp = 100,
+            ammo = 30,
+            screenWidth = 1920,
+            screenHeight = 1080
+        )
+        val state = buildStateVector(fusedEnemies, situation)
         
         // 2. SuperAgentCoordinator decide (integra: WorldModel, Transformer, ICM, Hierarchical, MAML)
         val decision = superAgentCoordinator.decide(bitmap, state)
         
-        performanceMonitor.recordStageTime(
-            PerformanceMonitor.PipelineStage.RL_DECISION,
-            System.currentTimeMillis() - superStart
-        )
+        performanceMonitor.measureDecision(System.currentTimeMillis() - superStart)
         
         // 3. Ejecutar acción con GestureEngine
         executeSuperAction(decision, fusedEnemies)
@@ -827,8 +832,7 @@ suspend fun processFrameEnhanced(bitmap: android.graphics.Bitmap) {
             latencyMs = decision.latencyMs
         )
         
-        val totalLatency = System.currentTimeMillis() - frameStart
-        performanceMonitor.recordFrame(totalLatency)
+        performanceMonitor.endFrame()
         bitmap.recycle()
         return
     }
@@ -838,27 +842,24 @@ suspend fun processFrameEnhanced(bitmap: android.graphics.Bitmap) {
     // 1. PREPROCESAMIENTO (GPU)
     val preprocessStart = System.currentTimeMillis()
     val inputBuffer = framePreprocessor.preprocess(bitmap)
-    performanceMonitor.recordStageTime(
-        PerformanceMonitor.PipelineStage.PREPROCESS,
-        System.currentTimeMillis() - preprocessStart
-    )
+    // PerformanceMonitor no tiene recordStageTime, usando measureDecision
+    performanceMonitor.measureDecision(System.currentTimeMillis() - preprocessStart)
     
     // 2. ANÁLISIS DE SITUACIÓN
     val situation = situationAnalyzer.analyze(
         enemies = emptyList(),
+        trackedObjects = emptyList(),
         hp = 100,
-        isUnderFire = false,
-        timeToZone = 60f,
-        enemiesNearby = 0
+        ammo = 30,
+        screenWidth = 1920,
+        screenHeight = 1080
     )
     
     // 3. INFERENCIA YOLO
     val yoloStart = System.currentTimeMillis()
     val detections = yoloDetector.detect(bitmap)
-    performanceMonitor.recordStageTime(
-        PerformanceMonitor.PipelineStage.YOLO_INFERENCE,
-        System.currentTimeMillis() - yoloStart
-    )
+    // Medir tiempo de inferencia YOLO
+    performanceMonitor.measureDecision(System.currentTimeMillis() - yoloStart)
     
     // Fusionar con modelos legacy
     val fusedEnemies = visionFusionEngine.fuseEnemyDetections(
@@ -875,18 +876,14 @@ suspend fun processFrameEnhanced(bitmap: android.graphics.Bitmap) {
     
     // Seleccionar acción con ensemble
     val decision = ensembleRL.selectAction(state)
-    performanceMonitor.recordStageTime(
-        PerformanceMonitor.PipelineStage.RL_DECISION,
-        System.currentTimeMillis() - rlStart
-    )
+    // Medir tiempo de decisión RL
+    performanceMonitor.measureDecision(System.currentTimeMillis() - rlStart)
     
     // 5. EJECUTAR ACCIÓN CON GESTUREENGINE
     val gestureStart = System.currentTimeMillis()
     executeEnhancedAction(decision, fusedEnemies)
-    performanceMonitor.recordStageTime(
-        PerformanceMonitor.PipelineStage.GESTURE_EXECUTION,
-        System.currentTimeMillis() - gestureStart
-    )
+    // Medir tiempo de ejecución de gestos
+    performanceMonitor.measureReflex(System.currentTimeMillis() - gestureStart)
     
     // 6. APRENDIZAJE
     val reward = rewardEngine.calculateReward(
@@ -922,7 +919,7 @@ suspend fun processFrameEnhanced(bitmap: android.graphics.Bitmap) {
     
     // 8. ACTUALIZAR MÉTRICAS
     val totalLatency = System.currentTimeMillis() - frameStart
-    performanceMonitor.recordFrame(totalLatency)
+    performanceMonitor.endFrame()
     
     // Liberar bitmap nativo
     bitmap.recycle()
