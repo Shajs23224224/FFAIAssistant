@@ -763,7 +763,7 @@ data class AdvancedAIStats(
     val loadedModels: Int,
     val framesProcessed: Long,
     val rlStats: com.ffai.assistant.rl.DeepRLStats,
-    val rewardStats: com.ffai.assistant.rl.RewardStats,
+    val rewardStats: com.ffai.assistant.rl.ShaperRewardStats,
     // Nuevos campos Fase 1-6
     val yoloDetections: Int = 0,
     val ensembleRLStats: com.ffai.assistant.rl.EnsembleStats? = null,
