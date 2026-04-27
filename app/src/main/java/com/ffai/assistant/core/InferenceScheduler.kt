@@ -134,7 +134,7 @@ class InferenceScheduler {
     /**
      * Obtiene estadísticas.
      */
-    fun getStats(): SchedulerStats = stats.copy()
+    fun getStats(): SchedulerStatsSnapshot = stats.copy()
     
     /**
      * Libera recursos.
@@ -211,14 +211,27 @@ class SchedulerStats {
     fun getAverageExecutionTime(): Long {
         val total = totalExecutionTime.get()
         val count = successCount.get()
-        return if (count > 0) (total / count).toLong() else 0
+        return if (count > 0) (total / count).toLong() else 0L
     }
     
-    override fun toString(): String {
-        return "SchedulerStats(success=${successCount.get()}, " +
-               "timeouts=${timeoutCount.get()}, " +
-               "errors=${errorCount.get()}, " +
-               "skips=${skipCount.get()}, " +
-               "avgTime=${getAverageExecutionTime()}ms)"
+    // Create a snapshot of current stats
+    fun copy(): SchedulerStatsSnapshot {
+        return SchedulerStatsSnapshot(
+            successCount = successCount.get(),
+            timeoutCount = timeoutCount.get(),
+            errorCount = errorCount.get(),
+            skipCount = skipCount.get(),
+            totalExecutionTime = totalExecutionTime.get(),
+            averageExecutionTime = getAverageExecutionTime()
+        )
     }
 }
+
+data class SchedulerStatsSnapshot(
+    val successCount: Int,
+    val timeoutCount: Int,
+    val errorCount: Int,
+    val skipCount: Int,
+    val totalExecutionTime: Int,
+    val averageExecutionTime: Long
+)
