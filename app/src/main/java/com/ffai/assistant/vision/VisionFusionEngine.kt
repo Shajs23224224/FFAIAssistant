@@ -81,7 +81,7 @@ class VisionFusionEngine {
                     width = detection.width,
                     height = detection.height,
                     confidence = detection.confidence * getSourceWeight(Source.YOLO),
-                    sources = listOf(DetectionSource(
+                    sources = mutableListOf(DetectionSource(
                         source = Source.YOLO,
                         confidence = detection.confidence,
                         trackId = detection.trackId,
@@ -153,7 +153,7 @@ class VisionFusionEngine {
             matchingDetection.sources.add(DetectionSource(
                 source = legacy.source,
                 confidence = legacy.confidence,
-                trackId = -1,  // Legacy no tiene tracking
+                trackId = -1,
                 velocityX = 0f,
                 velocityY = 0f
             ))
@@ -169,7 +169,7 @@ class VisionFusionEngine {
                 width = legacy.width,
                 height = legacy.height,
                 confidence = legacy.confidence * weight,
-                sources = listOf(DetectionSource(
+                sources = mutableListOf(DetectionSource(
                     source = legacy.source,
                     confidence = legacy.confidence,
                     trackId = -1,
