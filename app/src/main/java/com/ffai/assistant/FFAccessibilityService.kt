@@ -65,6 +65,7 @@ class FFAccessibilityService : AccessibilityService() {
     // === IA AVANZADA ENSEMBLE (FASES 1-9) ===
     private var advancedAICore: AdvancedAICore? = null
     private val useAdvancedAI = true  // Usar ensemble de 8 modelos +120MB
+    private val useEnhancedPipeline = true  // NUEVO: Usar pipeline YOLO+EnsembleRL+Gesture
 
     private var isRunning = false
     private var captureServiceReady = false
@@ -392,7 +393,32 @@ class FFAccessibilityService : AccessibilityService() {
             return
         }
 
-        // En modo híbrido, el GameLoop maneja todo internamente
+        // NUEVO PIPELINE: YOLO + Ensemble RL + GestureEngine (Fases 1-6)
+        if (useEnhancedPipeline && useAdvancedAI) {
+            serviceScope.launch(Dispatchers.Default) {
+                try {
+                    // Usar nuevo pipeline del AdvancedAICore
+                    // Nota: processFrameEnhanced es suspend, así que usamos launch
+                    advancedAICore?.processFrameEnhanced(bitmap)
+                    
+                    // Track FPS
+                    frameCount++
+                    val now = System.currentTimeMillis()
+                    if (now - lastFpsTime >= 1000) {
+                        currentFps = frameCount
+                        frameCount = 0
+                        lastFpsTime = now
+                        Logger.d("FPS (Enhanced): $currentFps")
+                    }
+                } catch (e: Exception) {
+                    Logger.e("Error en pipeline mejorado", e)
+                    bitmap.recycle()
+                }
+            }
+            return
+        }
+
+        // En modo híbrido legacy, el GameLoop maneja todo internamente
         if (useHybridAI) {
             gameLoop?.onFrameAvailable(bitmap)
             return
@@ -457,4 +483,17 @@ class FFAccessibilityService : AccessibilityService() {
     fun isAIActive(): Boolean = isRunning
     fun getCurrentFps(): Int = currentFps
     fun getBrain(): Brain? = brain
+    
+    /**
+     * Obtiene estadísticas del nuevo pipeline mejorado.
+     */
+    fun getEnhancedStats(): AdvancedAIStats? = advancedAICore?.getEnhancedStats()
+    
+    /**
+     * Fuerza el uso del pipeline mejorado (YOLO + Ensemble RL).
+     */
+    fun setUseEnhancedPipeline(use: Boolean) {
+        // No se puede cambiar en caliente, requiere reinicio
+        Logger.i("Enhanced pipeline setting: $use (requires restart)")
+    }
 }

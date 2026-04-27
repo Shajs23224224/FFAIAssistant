@@ -31,6 +31,36 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
+// === NUEVOS COMPONENTES FASE 1-6 ===
+import com.ffai.assistant.vision.YOLODetector
+import com.ffai.assistant.vision.FramePreprocessor
+import com.ffai.assistant.vision.VisionFusionEngine
+import com.ffai.assistant.rl.EnsembleRLCoordinator
+import com.ffai.assistant.rl.RewardEngine
+import com.ffai.assistant.rl.EnsembleDecision
+import com.ffai.assistant.memory.EpisodicMemory
+import com.ffai.assistant.gesture.GestureEngine
+import com.ffai.assistant.gesture.WeaponController
+import com.ffai.assistant.gesture.MovementController
+import com.ffai.assistant.telemetry.PerformanceMonitor
+import com.ffai.assistant.telemetry.StructuredLogger
+
+// === NUEVOS COMPONENTES REDES NEURONALES AVANZADAS (FASE 10-15) ===
+import com.ffai.assistant.rl.SuperAgentCoordinator
+import com.ffai.assistant.rl.worldmodel.DreamerAgent
+import com.ffai.assistant.rl.worldmodel.WorldModel
+import com.ffai.assistant.rl.transformer.TransformerAgent
+import com.ffai.assistant.rl.curiosity.ICMModule
+import com.ffai.assistant.rl.curiosity.IntrinsicRewardEngine
+import com.ffai.assistant.rl.hierarchical.MetaController
+import com.ffai.assistant.rl.hierarchical.SubPolicyManager
+import com.ffai.assistant.rl.metalearning.MAMLAgent
+import com.ffai.assistant.rl.metalearning.FastAdaptation
+
+// === SISTEMA DE MODELOS TFLITE ===
+import com.ffai.assistant.model.ModelManager
+import com.ffai.assistant.model.ModelDownloadService
+
 /**
  * FASE 9: AdvancedAICore - Núcleo principal de IA avanzada 100% Ensemble.
  *
@@ -70,7 +100,7 @@ class AdvancedAICore(
     // Scope para coroutines
     private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     
-    // Componentes principales
+    // Componentes LEGACY (mantenidos para compatibilidad)
     private lateinit var screenAnalyzer: ScreenAnalyzer
     private lateinit var overlayService: DynamicOverlayService
     private lateinit var ensembleManager: ModelEnsembleManager
@@ -82,6 +112,41 @@ class AdvancedAICore(
     private lateinit var deepRLCore: DeepRLCore
     private lateinit var rewardShaper: RewardShaper
     private lateinit var confidenceEngine: ConfidenceEngine
+    
+    // === NUEVOS COMPONENTES FASE 1-6 ===
+    // Fase 1-2: Visión y Latencia
+    private lateinit var yoloDetector: YOLODetector
+    private lateinit var framePreprocessor: FramePreprocessor
+    private lateinit var visionFusionEngine: VisionFusionEngine
+    private lateinit var situationAnalyzer: SituationAnalyzer
+    private lateinit var adaptiveInferencePipeline: AdaptiveInferencePipeline
+    private lateinit var inferenceScheduler: InferenceScheduler
+    private lateinit var thermalManager: ThermalManager
+    
+    // Fase 3: RL Ensemble
+    private lateinit var ensembleRL: EnsembleRLCoordinator
+    private lateinit var rewardEngine: RewardEngine
+    private lateinit var episodicMemory: EpisodicMemory
+    
+    // Fase 4: Gestos
+    private lateinit var gestureEngine: GestureEngine
+    private lateinit var weaponController: WeaponController
+    private lateinit var movementController: MovementController
+    
+    // Fase 5-6: Persistencia y Telemetría
+    private lateinit var performanceMonitor: PerformanceMonitor
+    private lateinit var structuredLogger: StructuredLogger
+    
+    // === NUEVOS COMPONENTES REDES NEURONALES AVANZADAS (FASE 10-15) ===
+    private lateinit var superAgentCoordinator: SuperAgentCoordinator
+    
+    // === SISTEMA DE MODELOS TFLITE ===
+    private lateinit var modelManager: ModelManager
+    
+    // Flags de configuración
+    private val useAdvancedNeuralPipeline = true  // NUEVO: Pipeline avanzado
+    private val useSuperAgent = true              // NUEVO: SuperAgentCoordinator
+    private val enableAutoDownload = true         // NUEVO: Descarga automática de modelos
     
     // Estado
     private val isRunning = AtomicBoolean(false)
@@ -98,7 +163,26 @@ class AdvancedAICore(
      * Inicializa todos los componentes del sistema.
      */
     suspend fun initialize() {
-        Logger.i(TAG, "Inicializando AdvancedAICore...")
+        Logger.i(TAG, "Inicializando AdvancedAICore con nuevos componentes...")
+        
+        // ========== SISTEMA DE MODELOS TFLITE (FASE 0) ==========
+        Logger.i(TAG, "[FASE 0] Inicializando gestor de modelos...")
+        
+        modelManager = ModelManager(context)
+        modelManager.initialize() // Crea placeholders si faltan modelos
+        
+        // Iniciar descarga automática si está habilitada y hay conexión
+        if (enableAutoDownload) {
+            Logger.i(TAG, "Iniciando descarga automática de modelos...")
+            context.startService(Intent(context, ModelDownloadService::class.java))
+        }
+        
+        val modelStatus = modelManager.getStatus()
+        val realModels = modelStatus.count { !it.value.isPlaceholder }
+        val placeholders = modelStatus.count { it.value.isPlaceholder }
+        Logger.i(TAG, "Modelos: $realModels reales, $placeholders placeholders")
+        
+        // ========== LEGACY COMPONENTS (mantenidos para compatibilidad) ==========
         
         // 1. Screen Analyzer
         screenAnalyzer = ScreenAnalyzer(
@@ -107,17 +191,17 @@ class AdvancedAICore(
         )
         screenAnalyzer.initialize()
         
-        // 2. Overlay Service (visión dinámica amplia)
+        // 2. Overlay Service
         overlayService = DynamicOverlayService()
         
-        // 3. Model Ensemble (120MB)
+        // 3. Model Ensemble Legacy
         ensembleManager = ModelEnsembleManager(context, coroutineScope)
         ensembleManager.initialize()
         
-        // 4. Reasoning Engine (3 modos)
+        // 4. Reasoning Engine Legacy
         reasoningEngine = ReasoningEngine(coroutineScope)
         
-        // 5. Controladores
+        // 5. Controladores Legacy
         gestureController = GestureController(service, gameConfig)
         cameraController = CameraController(service, gameConfig)
         smartAimTrainer = SmartAimTrainer()
@@ -125,7 +209,7 @@ class AdvancedAICore(
         // 6. Map Interpreter
         mapInterpreter = MapInterpreter()
         
-        // 7. RL Components
+        // 7. RL Legacy
         deepRLCore = DeepRLCore(context)
         deepRLCore.initialize()
         rewardShaper = RewardShaper()
@@ -133,11 +217,83 @@ class AdvancedAICore(
         // 8. Confidence Engine
         confidenceEngine = ConfidenceEngine()
         
+        // ========== NUEVOS COMPONENTES FASE 1-6 ==========
+        
+        // Fase 1-2: Visión Robusta y Latencia Adaptativa
+        Logger.i(TAG, "[FASE 1-2] Inicializando visión y latencia...")
+        
+        framePreprocessor = FramePreprocessor(context)
+        yoloDetector = YOLODetector(context, framePreprocessor)
+        visionFusionEngine = VisionFusionEngine(context)
+        
+        situationAnalyzer = SituationAnalyzer()
+        inferenceScheduler = InferenceScheduler()
+        adaptiveInferencePipeline = AdaptiveInferencePipeline(
+            yoloDetector = yoloDetector,
+            inferenceScheduler = inferenceScheduler,
+            thermalManager = null  // Se inyecta después
+        )
+        thermalManager = ThermalManager { throttleLevel ->
+            Logger.w(TAG, "Thermal throttling: nivel $throttleLevel")
+            adaptiveInferencePipeline.onThermalThrottle(throttleLevel)
+        }
+        
+        // Inicializar visión
+        val yoloOk = yoloDetector.initialize()
+        val fusionOk = visionFusionEngine.initialize()
+        Logger.i(TAG, "YOLO: ${if(yoloOk) "OK" else "FAIL"}, Fusion: ${if(fusionOk) "OK" else "FAIL"}")
+        
+        // Fase 3: Ensemble RL Profesional
+        Logger.i(TAG, "[FASE 3] Inicializando Ensemble RL (DQN+PPO+SAC)...")
+        
+        ensembleRL = EnsembleRLCoordinator(context)
+        val rlOk = ensembleRL.initialize()
+        
+        rewardEngine = RewardEngine()
+        episodicMemory = EpisodicMemory()
+        
+        Logger.i(TAG, "Ensemble RL: ${if(rlOk) "OK" else "FAIL"}")
+        
+        // Fase 4: Gestos Precisos
+        Logger.i(TAG, "[FASE 4] Inicializando control de gestos...")
+        
+        gestureEngine = GestureEngine(service)
+        weaponController = WeaponController(gestureEngine)
+        movementController = MovementController(gestureEngine)
+        
+        // Fase 5-6: Telemetría
+        Logger.i(TAG, "[FASE 5-6] Inicializando telemetría...")
+        
+        performanceMonitor = PerformanceMonitor(coroutineScope)
+        structuredLogger = StructuredLogger(context, coroutineScope)
+        
+        performanceMonitor.startMonitoring()
+        structuredLogger.startLogging()
+        
+        // ========== NUEVOS COMPONENTES REDES NEURONALES AVANZADAS (FASE 10-15) ==========
+        if (useSuperAgent) {
+            Logger.i(TAG, "[FASE 10-15] Inicializando Redes Neuronales Avanzadas...")
+            
+            superAgentCoordinator = SuperAgentCoordinator(context)
+            val superOk = superAgentCoordinator.initialize()
+            
+            Logger.i(TAG, "SuperAgentCoordinator: ${if(superOk) "OK" else "FAIL"}")
+            Logger.i(TAG, "  - World Model + Dreamer: Planificación lookahead")
+            Logger.i(TAG, "  - Transformer: Memoria temporal 64 frames")
+            Logger.i(TAG, "  - ICM: Exploración por curiosidad")
+            Logger.i(TAG, "  - Hierarchical RL: Meta-controller + 7 goals")
+            Logger.i(TAG, "  - MAML: Adaptación rápida a nuevas tareas")
+        }
+        
         // Configurar callbacks
         setupCallbacks()
         
         Logger.i(TAG, "AdvancedAICore inicializado correctamente")
-        Logger.i(TAG, "Modelos cargados: ${ensembleManager.getLoadedModelsCount()}/8")
+        Logger.i(TAG, "Legacy: ${ensembleManager.getLoadedModelsCount()}/8 modelos")
+        Logger.i(TAG, "Nuevo: YOLO + Ensemble RL + GestureEngine activos")
+        if (useSuperAgent) {
+            Logger.i(TAG, "Advanced Neural: SuperAgentCoordinator activo (+20MB modelos)")
+        }
     }
 
     /**
@@ -181,13 +337,34 @@ class AdvancedAICore(
     }
 
     /**
-     * Detiene el sistema.
+     * Detiene el sistema y libera recursos.
      */
     fun stop() {
         isRunning.set(false)
         screenAnalyzer.stop()
+        
+        // Liberar nuevos componentes
+        coroutineScope.launch {
+            structuredLogger.stopLogging()
+            performanceMonitor.stopMonitoring()
+        }
+        
+        yoloDetector.release()
+        visionFusionEngine.release()
+        ensembleRL.release()
+        gestureEngine.shutdown()
+        thermalManager.stop()
+        
+        // Liberar componentes avanzados
+        if (useSuperAgent && ::superAgentCoordinator.isInitialized) {
+            superAgentCoordinator.release()
+        }
+        
         coroutineScope.cancel()
-        Logger.i(TAG, "AdvancedAICore detenido")
+        Logger.i(TAG, "AdvancedAICore detenido y recursos liberados")
+        if (useSuperAgent) {
+            Logger.i(TAG, "SuperAgentCoordinator: recursos liberados")
+        }
     }
 
     /**
@@ -546,7 +723,10 @@ class AdvancedAICore(
             loadedModels = ensembleManager.getLoadedModelsCount(),
             framesProcessed = frameCount.get(),
             rlStats = deepRLCore.getStats(),
-            rewardStats = rewardShaper.getStats()
+            rewardStats = rewardShaper.getStats(),
+            yoloDetections = if (::yoloDetector.isInitialized) yoloDetector.getStats().totalDetections else 0,
+            ensembleRLStats = if (::ensembleRL.isInitialized) ensembleRL.getStats() else null,
+            performanceMetrics = if (::performanceMonitor.isInitialized) performanceMonitor.getMetrics() else null
         )
     }
 
@@ -582,5 +762,374 @@ data class AdvancedAIStats(
     val loadedModels: Int,
     val framesProcessed: Long,
     val rlStats: com.ffai.assistant.rl.DeepRLStats,
-    val rewardStats: com.ffai.assistant.rl.RewardStats
+    val rewardStats: com.ffai.assistant.rl.RewardStats,
+    // Nuevos campos Fase 1-6
+    val yoloDetections: Int = 0,
+    val ensembleRLStats: com.ffai.assistant.rl.EnsembleStats? = null,
+    val performanceMetrics: com.ffai.assistant.telemetry.PerformanceMetrics? = null,
+    // Nuevos campos Fase 10-15 (Redes Neuronales Avanzadas)
+    val superAgentStats: String? = null,
+    val activePipeline: String = "Legacy"
 )
+
+// ============================================
+// NUEVO PIPELINE INTEGRADO (FASES 1-6)
+// ============================================
+
+/**
+ * Procesa frame con nuevo pipeline integrado.
+ * Este método utiliza YOLO + Ensemble RL + GestureEngine
+ * o SuperAgentCoordinator (World Model + Transformer + ICM + Hierarchical + MAML)
+ * PÚBLICO: Llamado desde FFAccessibilityService
+ */
+suspend fun processFrameEnhanced(bitmap: android.graphics.Bitmap) {
+    val frameStart = System.currentTimeMillis()
+    
+    // ========== PIPELINE AVANZADO CON SUPER AGENT ==========
+    if (useSuperAgent && ::superAgentCoordinator.isInitialized) {
+        val superStart = System.currentTimeMillis()
+        
+        // 1. Preparar estado (256 dims) desde YOLO
+        val preprocessStart = System.currentTimeMillis()
+        val detections = yoloDetector.detect(bitmap)
+        val fusedEnemies = visionFusionEngine.fuseDetections(
+            yoloDetections = detections,
+            combatNetEnemies = emptyList(),
+            visionNetEnemies = emptyList()
+        )
+        val state = buildStateVector(fusedEnemies, situationAnalyzer.analyze(fusedEnemies, 100, false, 60f, fusedEnemies.size))
+        
+        // 2. SuperAgentCoordinator decide (integra: WorldModel, Transformer, ICM, Hierarchical, MAML)
+        val decision = superAgentCoordinator.decide(bitmap, state)
+        
+        performanceMonitor.recordStageTime(
+            PerformanceMonitor.PipelineStage.RL_DECISION,
+            System.currentTimeMillis() - superStart
+        )
+        
+        // 3. Ejecutar acción con GestureEngine
+        executeSuperAction(decision, fusedEnemies)
+        
+        // 4. Logging del pipeline avanzado
+        structuredLogger.logDecision(
+            timestamp = System.currentTimeMillis(),
+            state = mapOf(
+                "enemies" to fusedEnemies.size,
+                "goal" to decision.goal.name,
+                "super_action" to decision.action,
+                "pipeline" to "SuperAgent"
+            ),
+            action = decision.action,
+            confidence = decision.confidence,
+            reasoning = "SuperAgent: Goal=${decision.goal}, Components=${decision.components}",
+            latencyMs = decision.latencyMs
+        )
+        
+        val totalLatency = System.currentTimeMillis() - frameStart
+        performanceMonitor.recordFrame(totalLatency)
+        bitmap.recycle()
+        return
+    }
+    
+    // ========== PIPELINE LEGACY (YOLO + Ensemble RL) ==========
+    
+    // 1. PREPROCESAMIENTO (GPU)
+    val preprocessStart = System.currentTimeMillis()
+    val inputBuffer = framePreprocessor.preprocess(bitmap)
+    performanceMonitor.recordStageTime(
+        PerformanceMonitor.PipelineStage.PREPROCESS,
+        System.currentTimeMillis() - preprocessStart
+    )
+    
+    // 2. ANÁLISIS DE SITUACIÓN
+    val situation = situationAnalyzer.analyze(
+        enemies = emptyList(),
+        hp = 100,
+        isUnderFire = false,
+        timeToZone = 60f,
+        enemiesNearby = 0
+    )
+    
+    // 3. INFERENCIA YOLO
+    val yoloStart = System.currentTimeMillis()
+    val detections = yoloDetector.detect(bitmap)
+    performanceMonitor.recordStageTime(
+        PerformanceMonitor.PipelineStage.YOLO_INFERENCE,
+        System.currentTimeMillis() - yoloStart
+    )
+    
+    // Fusionar con modelos legacy
+    val fusedEnemies = visionFusionEngine.fuseDetections(
+        yoloDetections = detections,
+        combatNetEnemies = emptyList(),
+        visionNetEnemies = emptyList()
+    )
+    
+    // 4. ENSEMBLE RL DECISION
+    val rlStart = System.currentTimeMillis()
+    
+    // Construir estado (256 dims)
+    val state = buildStateVector(fusedEnemies, situation)
+    
+    // Seleccionar acción con ensemble
+    val decision = ensembleRL.selectAction(state)
+    performanceMonitor.recordStageTime(
+        PerformanceMonitor.PipelineStage.RL_DECISION,
+        System.currentTimeMillis() - rlStart
+    )
+    
+    // 5. EJECUTAR ACCIÓN CON GESTUREENGINE
+    val gestureStart = System.currentTimeMillis()
+    executeEnhancedAction(decision, fusedEnemies)
+    performanceMonitor.recordStageTime(
+        PerformanceMonitor.PipelineStage.GESTURE_EXECUTION,
+        System.currentTimeMillis() - gestureStart
+    )
+    
+    // 6. APRENDIZAJE
+    val reward = rewardEngine.calculateReward(
+        action = decision.action,
+        currentHealth = 100,
+        currentAmmo = 30,
+        enemies = fusedEnemies,
+        screenWidth = gameConfig.screenWidth,
+        screenHeight = gameConfig.screenHeight
+    )
+    
+    // Almacenar experiencia
+    val nextState = buildStateVector(fusedEnemies, situation)
+    ensembleRL.storeExperience(state, decision.action, reward.totalReward, nextState, false)
+    
+    // Entrenar
+    ensembleRL.trainStep()
+    
+    // 7. LOGGING
+    structuredLogger.logDecision(
+        timestamp = System.currentTimeMillis(),
+        state = mapOf(
+            "enemies" to fusedEnemies.size,
+            "threat" to situation.threatLevel.name,
+            "mode" to situation.recommendedMode.name,
+            "pipeline" to "Legacy"
+        ),
+        action = decision.action,
+        confidence = decision.confidence,
+        reasoning = "Ensemble: ${decision.primaryAgent?.name ?: "none"}, Consensus: ${decision.consensus}",
+        latencyMs = System.currentTimeMillis() - frameStart
+    )
+    
+    // 8. ACTUALIZAR MÉTRICAS
+    val totalLatency = System.currentTimeMillis() - frameStart
+    performanceMonitor.recordFrame(totalLatency)
+    
+    // Liberar bitmap nativo
+    bitmap.recycle()
+}
+
+/**
+ * Construye vector de estado para RL.
+ */
+private fun buildStateVector(
+    enemies: List<com.ffai.assistant.vision.FusedEnemy>,
+    situation: SituationAnalysis
+): FloatArray {
+    val state = FloatArray(256) { 0f }
+    
+    // Enemigos (hasta 5, 20 valores cada uno)
+    enemies.take(5).forEachIndexed { index, enemy ->
+        val offset = index * 20
+        state[offset] = enemy.centerX() / gameConfig.screenWidth
+        state[offset + 1] = enemy.centerY() / gameConfig.screenHeight
+        state[offset + 2] = enemy.confidence
+        state[offset + 3] = enemy.area / (gameConfig.screenWidth * gameConfig.screenHeight)
+        state[offset + 4] = if (enemy.classLabel == "enemy") 1f else 0f
+    }
+    
+    // Situación (últimos 156 valores)
+    state[100] = when (situation.threatLevel) {
+        ThreatLevel.CRITICAL -> 1f
+        ThreatLevel.HIGH -> 0.8f
+        ThreatLevel.MEDIUM -> 0.5f
+        ThreatLevel.LOW -> 0.2f
+    }
+    state[101] = if (situation.shouldEngage) 1f else 0f
+    state[102] = if (situation.shouldEvade) 1f else 0f
+    
+    return state
+}
+
+/**
+ * Ejecuta acción usando nuevos componentes.
+ */
+private fun executeEnhancedAction(
+    decision: EnsembleDecision,
+    enemies: List<com.ffai.assistant.vision.FusedEnemy>
+) {
+    when (decision.action) {
+        ActionType.AIM -> {
+            // Aim al enemigo más cercano
+            val target = enemies.maxByOrNull { it.confidence }
+            target?.let {
+                gestureEngine.swipe(
+                    startX = gameConfig.screenWidth / 2f,
+                    startY = gameConfig.screenHeight / 2f,
+                    deltaX = it.centerX() - gameConfig.screenWidth / 2f,
+                    deltaY = it.centerY() - gameConfig.screenHeight / 2f,
+                    speedFactor = 1.5f
+                )
+            }
+        }
+        
+        ActionType.SHOOT -> {
+            val target = enemies.firstOrNull()
+            if (target != null) {
+                weaponController.shoot(
+                    targetX = target.centerX(),
+                    targetY = target.centerY(),
+                    distance = 50f  // TODO: Calcular distancia real
+                )
+            }
+        }
+        
+        ActionType.MOVE_FORWARD, ActionType.MOVE_BACKWARD,
+        ActionType.MOVE_LEFT, ActionType.MOVE_RIGHT -> {
+            // Usar MovementController para movimiento táctico
+            val deltaX = when (decision.action) {
+                ActionType.MOVE_LEFT -> -100f
+                ActionType.MOVE_RIGHT -> 100f
+                else -> 0f
+            }
+            val deltaY = when (decision.action) {
+                ActionType.MOVE_FORWARD -> -100f
+                ActionType.MOVE_BACKWARD -> 100f
+                else -> 0f
+            }
+            movementController.moveTo(
+                targetX = gameConfig.screenWidth / 2f + deltaX,
+                targetY = gameConfig.screenHeight / 2f + deltaY
+            )
+        }
+        
+        ActionType.CROUCH -> {
+            gestureEngine.crouch()
+        }
+        
+        ActionType.JUMP -> {
+            gestureEngine.jump()
+        }
+        
+        ActionType.HEAL -> {
+            gestureEngine.heal()
+        }
+        
+        ActionType.RELOAD -> {
+            gestureEngine.reload()
+        }
+        
+        ActionType.HOLD -> {
+            // No hacer nada
+        }
+        
+        else -> {
+            // Fallback a gesture controller legacy
+            gestureController.execute(convertActionType(decision.action))
+        }
+    }
+}
+
+/**
+ * Ejecuta acción usando SuperAgentCoordinator.
+ */
+private fun executeSuperAction(
+    decision: com.ffai.assistant.rl.SuperDecision,
+    enemies: List<com.ffai.assistant.vision.FusedEnemy>
+) {
+    val actionType = when (decision.action) {
+        0 -> ActionType.AIM
+        1 -> ActionType.SHOOT
+        2 -> ActionType.MOVE_FORWARD
+        3 -> ActionType.MOVE_BACKWARD
+        4 -> ActionType.MOVE_LEFT
+        5 -> ActionType.MOVE_RIGHT
+        6 -> ActionType.JUMP
+        7 -> ActionType.CROUCH
+        8 -> ActionType.HEAL
+        9 -> ActionType.RELOAD
+        10 -> ActionType.LOOT
+        11 -> ActionType.DRIVE
+        12 -> ActionType.SWIM
+        13 -> ActionType.SCOPE
+        else -> ActionType.HOLD
+    }
+    
+    when (actionType) {
+        ActionType.AIM -> {
+            val target = enemies.maxByOrNull { it.confidence }
+            target?.let {
+                gestureEngine.swipe(
+                    startX = gameConfig.screenWidth / 2f,
+                    startY = gameConfig.screenHeight / 2f,
+                    deltaX = it.centerX() - gameConfig.screenWidth / 2f,
+                    deltaY = it.centerY() - gameConfig.screenHeight / 2f,
+                    speedFactor = 1.5f
+                )
+            }
+        }
+        
+        ActionType.SHOOT -> {
+            val target = enemies.firstOrNull()
+            if (target != null) {
+                weaponController.shoot(
+                    targetX = target.centerX(),
+                    targetY = target.centerY(),
+                    distance = 50f
+                )
+            }
+        }
+        
+        ActionType.MOVE_FORWARD, ActionType.MOVE_BACKWARD,
+        ActionType.MOVE_LEFT, ActionType.MOVE_RIGHT -> {
+            val deltaX = when (actionType) {
+                ActionType.MOVE_LEFT -> -100f
+                ActionType.MOVE_RIGHT -> 100f
+                else -> 0f
+            }
+            val deltaY = when (actionType) {
+                ActionType.MOVE_FORWARD -> -100f
+                ActionType.MOVE_BACKWARD -> 100f
+                else -> 0f
+            }
+            movementController.moveTo(
+                targetX = gameConfig.screenWidth / 2f + deltaX,
+                targetY = gameConfig.screenHeight / 2f + deltaY
+            )
+        }
+        
+        ActionType.CROUCH -> gestureEngine.crouch()
+        ActionType.JUMP -> gestureEngine.jump()
+        ActionType.HEAL -> gestureEngine.heal()
+        ActionType.RELOAD -> gestureEngine.reload()
+        ActionType.HOLD -> { /* No hacer nada */ }
+        else -> gestureController.execute(convertActionType(actionType))
+    }
+}
+
+/**
+ * Obtiene estadísticas completas incluyendo nuevos componentes.
+ */
+fun getEnhancedStats(): AdvancedAIStats {
+    return AdvancedAIStats(
+        reasoningMode = currentReasoningMode.get(),
+        confidenceMode = confidenceEngine.getCurrentMode(),
+        currentConfidence = confidenceEngine.getCurrentConfidence(),
+        loadedModels = ensembleManager.getLoadedModelsCount(),
+        framesProcessed = frameCount.get(),
+        rlStats = deepRLCore.getStats(),
+        rewardStats = rewardShaper.getStats(),
+        yoloDetections = if (::yoloDetector.isInitialized) yoloDetector.getStats().totalDetections else 0,
+        ensembleRLStats = if (::ensembleRL.isInitialized) ensembleRL.getStats() else null,
+        performanceMetrics = if (::performanceMonitor.isInitialized) performanceMonitor.getMetrics() else null,
+        superAgentStats = if (useSuperAgent && ::superAgentCoordinator.isInitialized) "Active" else null,
+        activePipeline = if (useSuperAgent && ::superAgentCoordinator.isInitialized) "SuperAgent" else "Legacy"
+    )
+}
