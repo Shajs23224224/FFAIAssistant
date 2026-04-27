@@ -24,6 +24,7 @@ import com.ffai.assistant.overlay.FrameData
 import com.ffai.assistant.overlay.ScreenAnalyzer
 import com.ffai.assistant.rl.DeepRLCore
 import com.ffai.assistant.rl.RewardShaper
+import com.ffai.assistant.model.ThreatLevel
 import com.ffai.assistant.utils.Logger
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -224,7 +225,7 @@ class AdvancedAICore(
         
         framePreprocessor = FramePreprocessor(context)
         yoloDetector = YOLODetector(context, framePreprocessor)
-        visionFusionEngine = VisionFusionEngine(context)
+        visionFusionEngine = VisionFusionEngine()
         
         situationAnalyzer = SituationAnalyzer()
         inferenceScheduler = InferenceScheduler()
@@ -792,10 +793,10 @@ suspend fun processFrameEnhanced(bitmap: android.graphics.Bitmap) {
         // 1. Preparar estado (256 dims) desde YOLO
         val preprocessStart = System.currentTimeMillis()
         val detections = yoloDetector.detect(bitmap)
-        val fusedEnemies = visionFusionEngine.fuseDetections(
+        val fusedEnemies = visionFusionEngine.fuseEnemyDetections(
             yoloDetections = detections,
-            combatNetEnemies = emptyList(),
-            visionNetEnemies = emptyList()
+            combatOutput = null,
+            visionOutput = null
         )
         val state = buildStateVector(fusedEnemies, situationAnalyzer.analyze(fusedEnemies, 100, false, 60f, fusedEnemies.size))
         
@@ -859,10 +860,10 @@ suspend fun processFrameEnhanced(bitmap: android.graphics.Bitmap) {
     )
     
     // Fusionar con modelos legacy
-    val fusedEnemies = visionFusionEngine.fuseDetections(
+    val fusedEnemies = visionFusionEngine.fuseEnemyDetections(
         yoloDetections = detections,
-        combatNetEnemies = emptyList(),
-        visionNetEnemies = emptyList()
+        combatOutput = null,
+        visionOutput = null
     )
     
     // 4. ENSEMBLE RL DECISION
@@ -908,7 +909,7 @@ suspend fun processFrameEnhanced(bitmap: android.graphics.Bitmap) {
         timestamp = System.currentTimeMillis(),
         state = mapOf(
             "enemies" to fusedEnemies.size,
-            "threat" to situation.threatLevel.name,
+            "threat" to situation.level.name,
             "mode" to situation.recommendedMode.name,
             "pipeline" to "Legacy"
         ),
@@ -946,14 +947,15 @@ private fun buildStateVector(
     }
     
     // Situación (últimos 156 valores)
-    state[100] = when (situation.threatLevel) {
-        ThreatLevel.CRITICAL -> 1f
-        ThreatLevel.HIGH -> 0.8f
-        ThreatLevel.MEDIUM -> 0.5f
-        ThreatLevel.LOW -> 0.2f
+    state[100] = when (situation.level) {
+        SituationLevel.CRITICAL -> 1f
+        SituationLevel.HIGH -> 0.8f
+        SituationLevel.MEDIUM -> 0.5f
+        SituationLevel.LOW -> 0.2f
+        else -> 0f
     }
-    state[101] = if (situation.shouldEngage) 1f else 0f
-    state[102] = if (situation.shouldEvade) 1f else 0f
+    state[101] = if (situation.recommendedAction == RecommendedAction.ENGAGE_NEAREST) 1f else 0f
+    state[102] = if (situation.recommendedAction == RecommendedAction.RETREAT_TO_COVER) 1f else 0f
     
     return state
 }
