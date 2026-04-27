@@ -1,6 +1,7 @@
 package com.ffai.assistant.core
 
 import android.graphics.Bitmap
+import com.ffai.assistant.core.ReasoningModeCore
 import com.ffai.assistant.vision.*
 import com.ffai.assistant.utils.Logger
 import kotlinx.coroutines.*
@@ -147,10 +148,11 @@ class AdaptiveInferencePipeline(
         )
     }
     
-    private fun updateMode(newMode: ReasoningMode) {
-        if (newMode != currentMode) {
-            Logger.i(TAG, "Mode switch: $currentMode → $newMode")
-            currentMode = newMode
+    private fun updateMode(recommended: ReasoningModeCore) {
+        currentMode = when (recommended) {
+            ReasoningModeCore.SHORT -> ReasoningMode.SHORT
+            ReasoningModeCore.MEDIUM -> ReasoningMode.MEDIUM
+            ReasoningModeCore.LONG -> ReasoningMode.LONG
         }
     }
     

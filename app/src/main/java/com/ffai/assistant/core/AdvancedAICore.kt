@@ -2,6 +2,7 @@ package com.ffai.assistant.core
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import com.ffai.assistant.action.Action
 import com.ffai.assistant.action.CameraController
@@ -224,15 +225,15 @@ class AdvancedAICore(
         Logger.i(TAG, "[FASE 1-2] Inicializando visión y latencia...")
         
         framePreprocessor = FramePreprocessor(context)
-        yoloDetector = YOLODetector(context, framePreprocessor)
+        yoloDetector = YOLODetector(context)
         visionFusionEngine = VisionFusionEngine()
         
         situationAnalyzer = SituationAnalyzer()
         inferenceScheduler = InferenceScheduler()
         adaptiveInferencePipeline = AdaptiveInferencePipeline(
             yoloDetector = yoloDetector,
-            inferenceScheduler = inferenceScheduler,
-            thermalManager = null  // Se inyecta después
+            preprocessor = framePreprocessor,
+            postProcessor = DetectionPostProcessor()
         )
         thermalManager = ThermalManager { throttleLevel ->
             Logger.w(TAG, "Thermal throttling: nivel $throttleLevel")
@@ -351,10 +352,10 @@ class AdvancedAICore(
         }
         
         yoloDetector.release()
-        visionFusionEngine.release()
+        // visionFusionEngine no tiene método de release
         ensembleRL.release()
         gestureEngine.shutdown()
-        thermalManager.stop()
+        thermalManager.stopMonitoring()
         
         // Liberar componentes avanzados
         if (useSuperAgent && ::superAgentCoordinator.isInitialized) {
