@@ -365,7 +365,7 @@ data class CoverPosition(
 /**
  * Direcciones de strafe.
  */
-enum class StrafeDirection { LEFT, RIGHT }
+enum class StrafeDirectionCore { LEFT, RIGHT }
 
 /**
  * Direcciones de peek.
