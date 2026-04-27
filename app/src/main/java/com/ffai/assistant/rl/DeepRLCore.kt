@@ -183,7 +183,7 @@ class DeepRLCore(private val context: Context) {
     /**
      * Entrena sobre una experiencia individual.
      */
-    private fun trainOnExperience(exp: Experience): Float {
+    private fun trainOnExperience(exp: RLExperience): Float {
         // Calcular target Q-value
         val targetQ = if (exp.done) {
             exp.reward
@@ -233,7 +233,7 @@ class DeepRLCore(private val context: Context) {
         nextState: FloatArray,
         done: Boolean
     ) {
-        val experience = Experience(
+        val experience = RLExperience(
             state = state,
             action = action,
             reward = reward,
@@ -441,10 +441,10 @@ class DeepRLCore(private val context: Context) {
 // ============================================
 
 class PriorityReplayBuffer(private val capacity: Int) {
-    private val buffer = ArrayDeque<Experience>(capacity)
+    private val buffer = ArrayDeque<RLExperience>(capacity)
     private val priorities = ArrayDeque<Float>(capacity)
 
-    fun add(experience: Experience) {
+    fun add(experience: RLExperience) {
         if (buffer.size >= capacity) {
             buffer.removeFirst()
             priorities.removeFirst()
@@ -453,12 +453,12 @@ class PriorityReplayBuffer(private val capacity: Int) {
         priorities.addLast(experience.priority)
     }
 
-    fun sample(batchSize: Int): List<Experience> {
+    fun sample(batchSize: Int): List<RLExperience> {
         if (buffer.size < batchSize) return buffer.toList()
         
         // Sampleo ponderado por prioridad
         val totalPriority = priorities.sum()
-        val sampled = mutableListOf<Experience>()
+        val sampled = mutableListOf<RLExperience>()
         
         repeat(batchSize) {
             val threshold = Random().nextFloat() * totalPriority
@@ -480,13 +480,13 @@ class PriorityReplayBuffer(private val capacity: Int) {
     fun size(): Int = buffer.size
 }
 
-data class Experience(
+data class RLExperience(
     val state: FloatArray,
     val action: Int,
     val reward: Float,
     val nextState: FloatArray,
     val done: Boolean,
-    var priority: Float
+    val priority: Float = 1.0f
 )
 
 data class DeepRLStats(

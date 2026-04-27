@@ -125,7 +125,7 @@ class DQNAgent(private val context: Context) {
         nextState: FloatArray,
         done: Boolean
     ) {
-        val experience = Experience(state, action.ordinal, reward, nextState, done)
+        val experience = DQNExperience(state, action.ordinal, reward, nextState, done)
         val priority = calculateInitialPriority(reward)
         replayBuffer.add(experience, priority)
         
@@ -185,7 +185,7 @@ class DQNAgent(private val context: Context) {
     /**
      * Calcula target Q-value con Double DQN.
      */
-    private fun calculateTargetQ(exp: Experience): Float {
+    private fun calculateTargetQ(exp: DQNExperience): Float {
         return if (exp.done) {
             exp.reward
         } else {
@@ -314,7 +314,7 @@ class DQNAgent(private val context: Context) {
 /**
  * Experiencia para replay buffer.
  */
-data class Experience(
+data class DQNExperience(
     val state: FloatArray,
     val action: Int,
     val reward: Float,
@@ -325,7 +325,7 @@ data class Experience(
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
         
-        other as Experience
+        other as DQNExperience
         
         if (action != other.action) return false
         if (reward != other.reward) return false
@@ -350,11 +350,11 @@ data class Experience(
  * Replay buffer con prioridad (PER).
  */
 class PrioritizedReplayBuffer(capacity: Int) {
-    private val buffer = ArrayDeque<Experience>(capacity)
+    private val buffer = ArrayDeque<DQNExperience>(capacity)
     private val priorities = ArrayDeque<Float>(capacity)
     private var maxCapacity = capacity
     
-    fun add(experience: Experience, priority: Float) {
+    fun add(experience: DQNExperience, priority: Float) {
         if (buffer.size >= maxCapacity) {
             buffer.removeFirst()
             priorities.removeFirst()
@@ -363,7 +363,7 @@ class PrioritizedReplayBuffer(capacity: Int) {
         priorities.add(priority)
     }
     
-    fun sample(batchSize: Int, beta: Float): Triple<List<Experience>, List<Int>, List<Float>> {
+    fun sample(batchSize: Int, beta: Float): Triple<List<DQNExperience>, List<Int>, List<Float>> {
         val size = buffer.size
         if (size == 0) return Triple(emptyList(), emptyList(), emptyList())
         
@@ -371,7 +371,7 @@ class PrioritizedReplayBuffer(capacity: Int) {
         val totalPriority = priorities.sum()
         val segmentSize = totalPriority / batchSize
         
-        val batch = mutableListOf<Experience>()
+        val batch = mutableListOf<DQNExperience>()
         val indices = mutableListOf<Int>()
         val weights = mutableListOf<Float>()
         

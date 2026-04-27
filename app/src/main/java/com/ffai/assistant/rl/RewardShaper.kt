@@ -420,8 +420,8 @@ class RewardShaper {
     // API PÚBLICA
     // ============================================
 
-    fun getStats(): RewardStats {
-        return RewardStats(
+    fun getStats(): ShaperRewardStats {
+        return ShaperRewardStats(
             totalKills = totalKills.get(),
             totalAllyKills = totalAllyKills.get(),
             totalDeaths = totalDeaths.get(),
@@ -471,7 +471,7 @@ private data class ActionRecord(
     val timestamp: Long
 )
 
-data class RewardStats(
+data class ShaperRewardStats(
     val totalKills: Int,
     val totalAllyKills: Int,
     val totalDeaths: Int,

@@ -208,7 +208,7 @@ class SituationAnalyzer {
 }
 
 enum class SituationLevel { LOW, MEDIUM, HIGH, CRITICAL }
-enum class ReasoningMode { SHORT, MEDIUM, LONG }
+enum class ReasoningModeCore { SHORT, MEDIUM, LONG }
 enum class RecommendedAction { ENGAGE_NEAREST, RETREAT_TO_COVER, REPOSITION, MOVE_TO_ADVANTAGE, ROTATE_TO_ZONE }
 
 data class SituationAnalysis(
@@ -220,7 +220,7 @@ data class SituationAnalysis(
     val hasLowHP: Boolean,
     val hasLowAmmo: Boolean,
     val isInCombat: Boolean,
-    val recommendedMode: ReasoningMode,
+    val recommendedMode: ReasoningModeCore,
     val shouldUseFastAim: Boolean,
     val recommendedAction: RecommendedAction
 )
