@@ -287,8 +287,8 @@ class SACAgent(private val context: Context) {
         
         actorNet?.run(input, output)
         
-        val probs = output[0].take(NUM_ACTIONS).toFloatArray()
-        val continuous = output[0].takeLast(2).toFloatArray()
+        val probs = output[0].sliceArray(0 until NUM_ACTIONS)
+        val continuous = output[0].sliceArray(NUM_ACTIONS until NUM_ACTIONS + 2)
         
         return Pair(softmax(probs), continuous)
     }
