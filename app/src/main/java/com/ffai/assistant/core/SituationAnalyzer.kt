@@ -152,12 +152,12 @@ class SituationAnalyzer {
         return currentSituation
     }
     
-    private fun determineReasoningMode(situation: SituationLevel): ReasoningMode {
+    private fun determineReasoningMode(situation: SituationLevel): ReasoningModeCore {
         return when (situation) {
-            SituationLevel.CRITICAL -> ReasoningMode.SHORT
-            SituationLevel.HIGH -> ReasoningMode.SHORT
-            SituationLevel.MEDIUM -> ReasoningMode.MEDIUM
-            SituationLevel.LOW -> ReasoningMode.LONG
+            SituationLevel.CRITICAL -> ReasoningModeCore.SHORT
+            SituationLevel.HIGH -> ReasoningModeCore.SHORT
+            SituationLevel.MEDIUM -> ReasoningModeCore.MEDIUM
+            SituationLevel.LOW -> ReasoningModeCore.LONG
         }
     }
     

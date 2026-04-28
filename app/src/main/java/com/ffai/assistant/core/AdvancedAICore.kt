@@ -270,7 +270,7 @@ class AdvancedAICore(
         performanceMonitor = PerformanceMonitor(coroutineScope)
         structuredLogger = StructuredLogger(context, coroutineScope)
         
-        performanceMonitor.startFrame()
+        performanceMonitor.recordFrame()
         structuredLogger.startLogging()
         
         // ========== NUEVOS COMPONENTES REDES NEURONALES AVANZADAS (FASE 10-15) ==========
@@ -349,7 +349,7 @@ class AdvancedAICore(
         // Liberar nuevos componentes
         coroutineScope.launch {
             structuredLogger.stopLogging()
-            performanceMonitor.endFrame()
+            performanceMonitor.recordFrame()
         }
         
         yoloDetector.release()
@@ -727,7 +727,7 @@ class AdvancedAICore(
             framesProcessed = frameCount.get(),
             rlStats = deepRLCore.getStats(),
             rewardStats = rewardShaper.getStats(),
-            yoloDetections = if (::yoloDetector.isInitialized) yoloDetector.getStats().detectionCount else 0,
+            yoloDetections = if (::yoloDetector.isInitialized) yoloDetector.getStats().totalDetections else 0,
             ensembleRLStats = if (::ensembleRL.isInitialized) ensembleRL.getStats() else null,
             performanceMetrics = if (::performanceMonitor.isInitialized) performanceMonitor.getMetrics() else null
         )

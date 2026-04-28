@@ -102,12 +102,12 @@ class AdaptiveInferencePipeline(
         tacticalInference: suspend () -> Unit
     ): AdaptiveResult {
         // YOLO + Tactical en paralelo
-        val deferredDetections = async {
+        val deferredDetections = scope.async {
             val raw = yoloDetector.detect(bitmap)
             postProcessor.process(raw, bitmap.width, bitmap.height)
         }
         
-        val deferredTactical = async { tacticalInference() }
+        val deferredTactical = scope.async { tacticalInference() }
         
         val detections = deferredDetections.await()
         deferredTactical.await()
@@ -127,13 +127,13 @@ class AdaptiveInferencePipeline(
         strategicInference: suspend () -> Unit
     ): AdaptiveResult {
         // Full ensemble - YOLO + Tactical + Strategic
-        val deferredDetections = async {
+        val deferredDetections = scope.async {
             val raw = yoloDetector.detect(bitmap)
             postProcessor.process(raw, bitmap.width, bitmap.height)
         }
         
-        val deferredTactical = async { tacticalInference() }
-        val deferredStrategic = async { strategicInference() }
+        val deferredTactical = scope.async { tacticalInference() }
+        val deferredStrategic = scope.async { strategicInference() }
         
         val detections = deferredDetections.await()
         deferredTactical.await()
@@ -170,12 +170,12 @@ class AdaptiveInferencePipeline(
         )
     }
     
-    fun onThermalThrottle(thermalState: com.ffai.assistant.core.ThermalState) {
+    fun onThermalThrottle(thermalState: ThermalManager.ThermalState) {
         // Reducir modo de inferencia según el estado térmico
         currentMode = when (thermalState) {
-            com.ffai.assistant.core.ThermalState.NORMAL -> currentMode // Mantener modo actual
-            com.ffai.assistant.core.ThermalState.MEDIUM -> ReasoningMode.MEDIUM
-            com.ffai.assistant.core.ThermalState.SHORT -> ReasoningMode.SHORT
+            ThermalManager.ThermalState.NORMAL -> currentMode // Mantener modo actual
+            ThermalManager.ThermalState.MEDIUM -> ReasoningMode.MEDIUM
+            ThermalManager.ThermalState.SHORT -> ReasoningMode.SHORT
         }
         Logger.w(TAG, "Thermal throttling aplicado: $thermalState, modo cambiado a: $currentMode")
     }

@@ -82,10 +82,10 @@ class EnsembleRLCoordinator(context: Context) {
             dqnAgent.selectAction(state) to calculateDQNConfidence()
         }
         val ppoDeferred = async { 
-            ppoAgent.selectAction(state) to calculatePPOConfidence()
+            ppoAgent.selectAction(state).discreteAction to calculatePPOConfidence()
         }
         val sacDeferred = async { 
-            sacAgent.selectAction(state) to calculateSACConfidence()
+            sacAgent.selectAction(state).action to calculateSACConfidence()
         }
         
         // Esperar resultados
