@@ -109,6 +109,14 @@ class PerformanceMonitor(private val scope: CoroutineScope) {
     }
     
     /**
+     * Mide tiempo de decisión táctica.
+     */
+    fun measureDecision(decisionTimeMs: Long) {
+        val decisionMetrics = stageTimings.getOrPut("DECISION") { StageMetrics() }
+        decisionMetrics.record(decisionTimeMs)
+    }
+    
+    /**
      * Obtiene métricas actuales.
      */
     fun getStats(): PerformanceMetrics = getMetrics()

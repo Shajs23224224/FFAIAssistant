@@ -18,6 +18,7 @@ import com.ffai.assistant.core.ReasoningMode
 import com.ffai.assistant.model.StrategicEnsembleResult
 import com.ffai.assistant.model.TacticalEnsembleResult
 import com.ffai.assistant.core.ConfidenceResult
+import com.ffai.assistant.telemetry.PerformanceMonitor.PipelineStage
 import com.ffai.assistant.navigation.MapInterpreter
 import com.ffai.assistant.overlay.AnalysisArea
 import com.ffai.assistant.overlay.DynamicOverlayService
@@ -26,6 +27,7 @@ import com.ffai.assistant.overlay.ScreenAnalyzer
 import com.ffai.assistant.rl.DeepRLCore
 import com.ffai.assistant.rl.RewardShaper
 import com.ffai.assistant.model.ThreatLevel
+import com.ffai.assistant.model.MergedEnemy
 import com.ffai.assistant.utils.Logger
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -37,18 +39,28 @@ import java.util.concurrent.atomic.AtomicReference
 import com.ffai.assistant.vision.YOLODetector
 import com.ffai.assistant.vision.FramePreprocessor
 import com.ffai.assistant.vision.VisionFusionEngine
+import com.ffai.assistant.vision.FusedEnemy
+import com.ffai.assistant.core.SituationAnalysis
+import com.ffai.assistant.core.SituationLevel
+import com.ffai.assistant.core.RecommendedAction
+import com.ffai.assistant.core.ConfidenceMode
 import com.ffai.assistant.rl.EnsembleRLCoordinator
 import com.ffai.assistant.rl.RewardEngine
+import com.ffai.assistant.rl.ShaperRewardStats
 import com.ffai.assistant.rl.EnsembleDecision
+import com.ffai.assistant.rl.DeepRLStats
+import com.ffai.assistant.rl.EnsembleStats
 import com.ffai.assistant.memory.EpisodicMemory
 import com.ffai.assistant.gesture.GestureEngine
 import com.ffai.assistant.gesture.WeaponController
 import com.ffai.assistant.gesture.MovementController
 import com.ffai.assistant.telemetry.PerformanceMonitor
 import com.ffai.assistant.telemetry.StructuredLogger
+import com.ffai.assistant.telemetry.PerformanceMetrics
 
 // === NUEVOS COMPONENTES REDES NEURONALES AVANZADAS (FASE 10-15) ===
 import com.ffai.assistant.rl.SuperAgentCoordinator
+import com.ffai.assistant.rl.SuperDecision
 import com.ffai.assistant.rl.worldmodel.DreamerAgent
 import com.ffai.assistant.rl.worldmodel.WorldModel
 import com.ffai.assistant.rl.transformer.TransformerAgent
@@ -270,7 +282,7 @@ class AdvancedAICore(
         performanceMonitor = PerformanceMonitor(coroutineScope)
         structuredLogger = StructuredLogger(context, coroutineScope)
         
-        performanceMonitor.recordFrame()
+        performanceMonitor.recordFrame(0L)
         structuredLogger.startLogging()
         
         // ========== NUEVOS COMPONENTES REDES NEURONALES AVANZADAS (FASE 10-15) ==========
@@ -349,7 +361,7 @@ class AdvancedAICore(
         // Liberar nuevos componentes
         coroutineScope.launch {
             structuredLogger.stopLogging()
-            performanceMonitor.recordFrame()
+            performanceMonitor.recordFrame(0L)
         }
         
         yoloDetector.release()
@@ -432,7 +444,7 @@ class AdvancedAICore(
                 uiOutput = null,
                 confidence = 0.5f,
                 mergedEnemies = fastResult?.enemies?.mapIndexed { index, it -> 
-                    com.ffai.assistant.model.MergedEnemy(
+                    MergedEnemy(
                         id = "enemy_${index}_${it.x.toInt()}_${it.y.toInt()}",
                         x = it.x, 
                         y = it.y, 
@@ -492,7 +504,7 @@ class AdvancedAICore(
                 val compensation = smartAimTrainer.calculateCompensation()
                 if (!compensation.shouldStopBurst()) {
                     // Ejecutar disparo
-                    gestureController.execute(com.ffai.assistant.action.Action.shoot())
+                    gestureController.execute(Action.shoot())
                     
                     // Aplicar compensación
                     cameraController.rotate(compensation.compensationX, compensation.compensationY)
@@ -509,27 +521,27 @@ class AdvancedAICore(
             }
             
             ActionType.HEAL -> {
-                gestureController.execute(com.ffai.assistant.action.Action.heal())
+                gestureController.execute(Action.heal())
             }
             
             ActionType.RELOAD -> {
-                gestureController.execute(com.ffai.assistant.action.Action.reload())
+                gestureController.execute(Action.reload())
             }
             
             ActionType.CROUCH -> {
-                gestureController.execute(com.ffai.assistant.action.Action.crouch())
+                gestureController.execute(Action.crouch())
             }
             
             ActionType.JUMP -> {
-                gestureController.execute(com.ffai.assistant.action.Action.jump())
+                gestureController.execute(Action.jump())
             }
             
             ActionType.ROTATE_LEFT, ActionType.ROTATE_RIGHT -> {
                 // Rotación según modo de confianza
                 val profile = when (confidenceEngine.getCurrentMode()) {
-                    com.ffai.assistant.core.ConfidenceMode.AGGRESSIVE -> 
+                    ConfidenceMode.AGGRESSIVE -> 
                         CameraController.CameraProfile.AGGRESSIVE
-                    com.ffai.assistant.core.ConfidenceMode.CONSERVATIVE -> 
+                    ConfidenceMode.CONSERVATIVE -> 
                         CameraController.CameraProfile.SMOOTH
                     else -> CameraController.CameraProfile.MEDIUM
                 }
@@ -551,7 +563,7 @@ class AdvancedAICore(
         // Reportar decisión para confianza
         confidenceEngine.reportDecision(
             action.type,
-            com.ffai.assistant.core.ConfidenceResult.SUCCESS // Determinar basado en resultado
+            ConfidenceResult.SUCCESS // Determinar basado en resultado
         )
     }
 
@@ -627,10 +639,10 @@ class AdvancedAICore(
             
             // Ajustar comportamiento según modo
             when (newMode) {
-                com.ffai.assistant.core.ConfidenceMode.CONSERVATIVE -> {
+                ConfidenceMode.CONSERVATIVE -> {
                     cameraController.setProfile(CameraController.CameraProfile.SMOOTH)
                 }
-                com.ffai.assistant.core.ConfidenceMode.AGGRESSIVE -> {
+                ConfidenceMode.AGGRESSIVE -> {
                     cameraController.setProfile(CameraController.CameraProfile.MEDIUM)
                 }
                 else -> {}
@@ -682,7 +694,7 @@ class AdvancedAICore(
             rewardShaper.calculateReward(
                 lastEnsembleResult.get(),
                 lastEnsembleResult.get() ?: return,
-                com.ffai.assistant.action.ActionType.SHOOT,
+                ActionType.SHOOT,
                 System.currentTimeMillis()
             )
         } else {
@@ -822,7 +834,7 @@ class AdvancedAICore(
         // 1. PREPROCESAMIENTO (GPU)
         val preprocessStart = System.currentTimeMillis()
         val inputBuffer = framePreprocessor.preprocess(bitmap)
-        performanceMonitor.recordStageTime(com.ffai.assistant.telemetry.PerformanceMonitor.PipelineStage.PREPROCESS, System.currentTimeMillis() - preprocessStart)
+        performanceMonitor.recordStageTime(PipelineStage.PREPROCESS, System.currentTimeMillis() - preprocessStart)
         
         // 2. ANÁLISIS DE SITUACIÓN
         val situation = situationAnalyzer.analyze(
@@ -837,7 +849,7 @@ class AdvancedAICore(
         // 3. INFERENCIA YOLO
         val yoloStart = System.currentTimeMillis()
         val detections = yoloDetector.detect(bitmap)
-        performanceMonitor.recordStageTime(com.ffai.assistant.telemetry.PerformanceMonitor.PipelineStage.YOLO_INFERENCE, System.currentTimeMillis() - yoloStart)
+        performanceMonitor.recordStageTime(PipelineStage.YOLO_INFERENCE, System.currentTimeMillis() - yoloStart)
         
         // Fusionar con modelos legacy
         val fusedEnemies = visionFusionEngine.fuseEnemyDetections(
@@ -854,12 +866,12 @@ class AdvancedAICore(
         
         // Seleccionar acción con ensemble
         val decision = ensembleRL.selectAction(state)
-        performanceMonitor.recordStageTime(com.ffai.assistant.telemetry.PerformanceMonitor.PipelineStage.RL_DECISION, System.currentTimeMillis() - rlStart)
+        performanceMonitor.recordStageTime(PipelineStage.RL_DECISION, System.currentTimeMillis() - rlStart)
         
         // 5. EJECUTAR ACCIÓN CON GESTUREENGINE
         val gestureStart = System.currentTimeMillis()
         executeEnhancedAction(decision, fusedEnemies)
-        performanceMonitor.recordStageTime(com.ffai.assistant.telemetry.PerformanceMonitor.PipelineStage.GESTURE_EXECUTION, System.currentTimeMillis() - gestureStart)
+        performanceMonitor.recordStageTime(PipelineStage.GESTURE_EXECUTION, System.currentTimeMillis() - gestureStart)
         
         // 6. APRENDIZAJE
         val reward = rewardEngine.calculateReward(
@@ -905,7 +917,7 @@ class AdvancedAICore(
      * Construye vector de estado para RL.
      */
     private fun buildStateVector(
-        enemies: List<com.ffai.assistant.vision.FusedEnemy>,
+        enemies: List<FusedEnemy>,
         situation: SituationAnalysis
     ): FloatArray {
         val state = FloatArray(256) { 0f }
@@ -939,7 +951,7 @@ class AdvancedAICore(
      */
     private fun executeEnhancedAction(
         decision: EnsembleDecision,
-        enemies: List<com.ffai.assistant.vision.FusedEnemy>
+        enemies: List<FusedEnemy>
     ) {
         when (decision.action) {
             ActionType.AIM -> {
@@ -1017,8 +1029,8 @@ class AdvancedAICore(
      * Ejecuta acción usando SuperAgentCoordinator.
      */
     private fun executeSuperAction(
-        decision: com.ffai.assistant.rl.SuperDecision,
-        enemies: List<com.ffai.assistant.vision.FusedEnemy>
+        decision: SuperDecision,
+        enemies: List<FusedEnemy>
     ) {
         val actionType = when (decision.action) {
             0 -> ActionType.AIM
@@ -1117,16 +1129,16 @@ class AdvancedAICore(
 
 data class AdvancedAIStats(
     val reasoningMode: ReasoningMode,
-    val confidenceMode: com.ffai.assistant.core.ConfidenceMode,
+    val confidenceMode: ConfidenceMode,
     val currentConfidence: Float,
     val loadedModels: Int,
     val framesProcessed: Long,
-    val rlStats: com.ffai.assistant.rl.DeepRLStats,
-    val rewardStats: com.ffai.assistant.rl.ShaperRewardStats,
+    val rlStats: DeepRLStats,
+    val rewardStats: ShaperRewardStats,
     // Nuevos campos Fase 1-6
     val yoloDetections: Int = 0,
-    val ensembleRLStats: com.ffai.assistant.rl.EnsembleStats? = null,
-    val performanceMetrics: com.ffai.assistant.telemetry.PerformanceMetrics? = null,
+    val ensembleRLStats: EnsembleStats? = null,
+    val performanceMetrics: PerformanceMetrics? = null,
     // Nuevos campos Fase 10-15 (Redes Neuronales Avanzadas)
     val superAgentStats: String? = null,
     val activePipeline: String = "Legacy"

@@ -431,7 +431,7 @@ class FFAccessibilityService : AccessibilityService() {
             try {
                 val action = brain?.processFrame(bitmap)
 
-                if (action != null && action.type != com.ffai.assistant.action.ActionType.HOLD) {
+                if (action != null && action.type != ActionType.HOLD) {
                     withContext(Dispatchers.Main) {
                         gestureController?.execute(action)
                     }

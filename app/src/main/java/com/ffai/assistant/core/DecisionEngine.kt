@@ -7,6 +7,7 @@ import com.ffai.assistant.perception.TacticalWorldModel
 import com.ffai.assistant.memory.TacticalMemory
 import com.ffai.assistant.memory.SituationMatch
 import com.ffai.assistant.telemetry.PerformanceMonitor
+import com.ffai.assistant.telemetry.PerformanceMonitor.PipelineStage
 import com.ffai.assistant.utils.Logger
 import java.nio.ByteBuffer
 
@@ -66,7 +67,7 @@ class DecisionEngine(
             reflexCount++
             val latency = System.currentTimeMillis() - startTime
             logStats("REFLEX", reflexAction, latency)
-            performanceMonitor?.recordStageTime(com.ffai.assistant.telemetry.PerformanceMonitor.PipelineStage.RL_DECISION, latency)
+            performanceMonitor?.recordStageTime(PipelineStage.RL_DECISION, latency)
 
             // Si es aim con coordenadas, usar AimController con PID
             if (reflexAction.type == ActionType.AIM && features != null && features.enemyPresent) {
@@ -89,7 +90,7 @@ class DecisionEngine(
                 tacticalCount++
                 val tacticalLatency = System.currentTimeMillis() - tacticalStart
                 logStats("FAST_TACTICAL", fastAction, tacticalLatency)
-                performanceMonitor?.recordStageTime(com.ffai.assistant.telemetry.PerformanceMonitor.PipelineStage.RL_DECISION, tacticalLatency)
+                performanceMonitor?.recordStageTime(PipelineStage.RL_DECISION, tacticalLatency)
 
                 // Si es acción de aim, actualizar controlador
                 if (fastAction.type == ActionType.AIM && features != null && features.enemyPresent) {
