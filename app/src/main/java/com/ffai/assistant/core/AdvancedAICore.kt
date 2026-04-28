@@ -74,7 +74,6 @@ import com.ffai.assistant.rl.metalearning.FastAdaptation
 
 // === SISTEMA DE MODELOS TFLITE ===
 import com.ffai.assistant.model.ModelManager
-import com.ffai.assistant.model.ModelDownloadService
 
 /**
  * FASE 9: AdvancedAICore - Núcleo principal de IA avanzada 100% Ensemble.
@@ -185,12 +184,6 @@ class AdvancedAICore(
         
         modelManager = ModelManager(context)
         modelManager.initialize() // Crea placeholders si faltan modelos
-        
-        // Iniciar descarga automática si está habilitada y hay conexión
-        if (enableAutoDownload) {
-            Logger.i(TAG, "Iniciando descarga automática de modelos...")
-            context.startService(Intent(context, ModelDownloadService::class.java))
-        }
         
         val modelStatus = modelManager.getStatus()
         val realModels = modelStatus.count { !it.value.isPlaceholder }
