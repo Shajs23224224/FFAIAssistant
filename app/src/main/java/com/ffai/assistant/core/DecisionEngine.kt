@@ -188,7 +188,7 @@ class DecisionEngine(
     /**
      * Obtiene performance stats si está disponible.
      */
-    fun getPerformanceStats(): PerformanceStats? {
+    fun getPerformanceStats(): com.ffai.assistant.telemetry.PerformanceMetrics? {
         return performanceMonitor?.getStats()
     }
     

@@ -232,7 +232,7 @@ class MultiHeadAttention(
         val seqLen = attentionWeights.size
         
         // Calcular importancia de cada posición
-        val importance = attentionWeights.map { it.average() }
+        val importance = attentionWeights.map { it.average().toFloat() }
         
         // Encontrar máximos
         val maxIndices = importance.withIndex()
@@ -254,7 +254,7 @@ class MultiHeadAttention(
      * Alta entropía = atención difusa.
      */
     private fun calculateEntropy(attention: Array<FloatArray>): Float {
-        val flat = attention.flatten()
+        val flat = attention.flatMap { it.asIterable() }
         return -flat.filter { it > 0 }.sumOf { p ->
             val prob = p.toDouble()
             prob * kotlin.math.ln(prob)

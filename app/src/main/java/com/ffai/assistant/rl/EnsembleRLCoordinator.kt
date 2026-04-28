@@ -86,7 +86,7 @@ class EnsembleRLCoordinator(context: Context) {
             ppoAgent.selectAction(state).discreteAction to calculatePPOConfidence()
         }
         val sacDeferred = async { 
-            sacAgent.selectAction(state).action to calculateSACConfidence()
+            sacAgent.selectAction(state).discreteAction to calculateSACConfidence()
         }
         
         // Esperar resultados
@@ -101,8 +101,9 @@ class EnsembleRLCoordinator(context: Context) {
         votes[sacResult] = (votes[sacResult] ?: 0f) + sacConf * sacWeight
         
         // Encontrar acción ganadora
-        val (bestAction, bestScore) = votes.maxByOrNull { it.value } 
-            ?: (ActionType.HOLD to 0f)
+        val maxEntry = votes.maxByOrNull { it.value }
+        val bestAction = maxEntry?.key ?: ActionType.HOLD
+        val bestScore = maxEntry?.value ?: 0f
         
         // Verificar consenso
         val agreeingAgents = listOf(

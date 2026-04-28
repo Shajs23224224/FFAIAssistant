@@ -257,6 +257,14 @@ class PPOAgent(private val context: Context) {
     /**
      * Predice probabilidades de acción.
      */
+    /**
+     * Entrena un paso (consistencia API con otros agentes).
+     */
+    fun trainStep(): Float {
+        updatePolicy()
+        return 0f // PPO no devuelve loss simple
+    }
+    
     private fun predictActionProbs(state: FloatArray): FloatArray {
         val input = Array(1) { state }
         val output = Array(1) { FloatArray(NUM_ACTIONS) }

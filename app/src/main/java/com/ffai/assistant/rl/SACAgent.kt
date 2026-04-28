@@ -59,7 +59,7 @@ class SACAgent(private val context: Context) {
     private var trainingStep = 0
     private var episodeCount = 0
     private var alpha = ALPHA  // Entropy temperature
-    private var logAlpha = kotlin.math.log(ALPHA.toDouble()).toFloat()
+    private var logAlpha = kotlin.math.ln(ALPHA.toDouble()).toFloat()
     
     // Stats
     private var totalReward = 0f

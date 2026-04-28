@@ -40,6 +40,7 @@ import com.ffai.assistant.vision.YOLODetector
 import com.ffai.assistant.vision.FramePreprocessor
 import com.ffai.assistant.vision.VisionFusionEngine
 import com.ffai.assistant.vision.FusedEnemy
+import com.ffai.assistant.vision.DetectionPostProcessor
 import com.ffai.assistant.core.SituationAnalysis
 import com.ffai.assistant.core.SituationLevel
 import com.ffai.assistant.core.RecommendedAction
@@ -817,7 +818,17 @@ class AdvancedAICore(
                     "super_action" to decision.action,
                     "pipeline" to "SuperAgent"
                 ),
-                action = decision.action,
+                action = when(decision.action) {
+                    0 -> ActionType.AIM
+                    1 -> ActionType.SHOOT
+                    2 -> ActionType.MOVE_FORWARD
+                    3 -> ActionType.MOVE_BACKWARD
+                    4 -> ActionType.MOVE_LEFT
+                    5 -> ActionType.MOVE_RIGHT
+                    6 -> ActionType.JUMP
+                    7 -> ActionType.CROUCH
+                    else -> ActionType.HOLD
+                },
                 confidence = decision.confidence,
                 reasoning = "SuperAgent: Goal=${decision.goal}, Components=${decision.components}",
                 latencyMs = decision.latencyMs
@@ -1108,12 +1119,12 @@ class AdvancedAICore(
     fun getEnhancedStats(): AdvancedAIStats {
         return AdvancedAIStats(
             reasoningMode = currentReasoningMode.get(),
-            confidenceMode = if (::confidenceEngine.isInitialized) confidenceEngine.getCurrentMode() else ConfidenceMode.LOW,
+            confidenceMode = if (::confidenceEngine.isInitialized) confidenceEngine.getCurrentMode() else ConfidenceMode.CONSERVATIVE,
             currentConfidence = if (::confidenceEngine.isInitialized) confidenceEngine.getCurrentConfidence() else 0.5f,
             loadedModels = if (::ensembleManager.isInitialized) ensembleManager.getLoadedModelsCount() else 0,
             framesProcessed = frameCount.get(),
             rlStats = if (::deepRLCore.isInitialized) deepRLCore.getStats() else DeepRLStats(0, 0f, 0f, 0f, 0f, 0f),
-            rewardStats = if (::rewardShaper.isInitialized) rewardShaper.getStats() else ShaperRewardStats(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f),
+            rewardStats = if (::rewardShaper.isInitialized) rewardShaper.getStats() else ShaperRewardStats(0, 0, 0, 0, 0f, 0),
             yoloDetections = if (::yoloDetector.isInitialized) yoloDetector.getStats().totalDetections else 0,
             ensembleRLStats = if (::ensembleRL.isInitialized) ensembleRL.getStats() else null,
             performanceMetrics = if (::performanceMonitor.isInitialized) performanceMonitor.getMetrics() else null,

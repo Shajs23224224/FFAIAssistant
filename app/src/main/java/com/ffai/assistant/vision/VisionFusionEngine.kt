@@ -53,7 +53,7 @@ class VisionFusionEngine {
      * @return Lista fusionada de detecciones de enemigos
      */
     fun fuseEnemyDetections(
-        yoloDetections: List<TrackedDetection>,
+        yoloDetections: List<com.ffai.assistant.vision.Detection>,
         combatOutput: CombatOutput?,
         visionOutput: VisionOutput?
     ): List<FusedEnemy> {
@@ -84,11 +84,11 @@ class VisionFusionEngine {
                     sources = mutableListOf(DetectionSource(
                         source = Source.YOLO,
                         confidence = detection.confidence,
-                        trackId = detection.trackId,
-                        velocityX = detection.velocityX,
-                        velocityY = detection.velocityY
+                        trackId = 0,
+                        velocityX = 0f,
+                        velocityY = 0f
                     )),
-                    isPredicted = detection.isPredicted()
+                    isPredicted = false
                 ))
             }
         
