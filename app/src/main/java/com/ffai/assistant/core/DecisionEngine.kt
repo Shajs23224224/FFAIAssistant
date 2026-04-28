@@ -6,6 +6,7 @@ import com.ffai.assistant.perception.GameState
 import com.ffai.assistant.perception.TacticalWorldModel
 import com.ffai.assistant.memory.TacticalMemory
 import com.ffai.assistant.memory.SituationMatch
+import com.ffai.assistant.telemetry.PerformanceMonitor
 import com.ffai.assistant.utils.Logger
 import java.nio.ByteBuffer
 

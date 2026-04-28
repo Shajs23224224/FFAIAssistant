@@ -1118,12 +1118,12 @@ private fun executeSuperAction(
 fun getEnhancedStats(): AdvancedAIStats {
     return AdvancedAIStats(
         reasoningMode = currentReasoningMode.get(),
-        confidenceMode = confidenceEngine.getCurrentMode(),
-        currentConfidence = confidenceEngine.getCurrentConfidence(),
-        loadedModels = ensembleManager.getLoadedModelsCount(),
+        confidenceMode = if (::confidenceEngine.isInitialized) confidenceEngine.getCurrentMode() else ConfidenceMode.LOW,
+        currentConfidence = if (::confidenceEngine.isInitialized) confidenceEngine.getCurrentConfidence() else 0.5f,
+        loadedModels = if (::ensembleManager.isInitialized) ensembleManager.getLoadedModelsCount() else 0,
         framesProcessed = frameCount.get(),
-        rlStats = deepRLCore.getStats(),
-        rewardStats = rewardShaper.getStats(),
+        rlStats = if (::deepRLCore.isInitialized) deepRLCore.getStats() else null,
+        rewardStats = if (::rewardShaper.isInitialized) rewardShaper.getStats() else null,
         yoloDetections = if (::yoloDetector.isInitialized) yoloDetector.getStats().totalDetections else 0,
         ensembleRLStats = if (::ensembleRL.isInitialized) ensembleRL.getStats() else null,
         performanceMetrics = if (::performanceMonitor.isInitialized) performanceMonitor.getMetrics() else null,

@@ -176,6 +176,7 @@ class AdaptiveInferencePipeline(
             ThermalManager.ThermalState.NORMAL -> currentMode // Mantener modo actual
             ThermalManager.ThermalState.MEDIUM -> ReasoningMode.MEDIUM
             ThermalManager.ThermalState.SHORT -> ReasoningMode.SHORT
+            ThermalManager.ThermalState.CRITICAL -> ReasoningMode.SHORT // Máxima reducción en estado crítico
         }
         Logger.w(TAG, "Thermal throttling aplicado: $thermalState, modo cambiado a: $currentMode")
     }

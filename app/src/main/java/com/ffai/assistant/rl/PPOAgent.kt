@@ -103,7 +103,7 @@ class PPOAgent(private val context: Context) {
         
         // Sample discrete action
         val actionIdx = sampleCategorical(actionProbs)
-        val logProb = log(actionProbs[actionIdx])
+        val logProb = kotlin.math.ln(actionProbs[actionIdx].toDouble()).toFloat()
         
         // Sample continuous action (aim adjustment)
         val continuousAction = sampleContinuous(state)
@@ -124,7 +124,7 @@ class PPOAgent(private val context: Context) {
         
         return PPOAction(
             discreteAction = ActionType.values().getOrElse(actionIdx) { ActionType.HOLD },
-            logProb = logProb,
+            logProb = logProb.toFloat(),
             stateValue = stateValue,
             continuousAction = continuousAction
         )
@@ -227,8 +227,8 @@ class PPOAgent(private val context: Context) {
         
         var surrogateLoss = 0f
         for ((idx, t) in batch.withIndex()) {
-            val newLogProb = log(predictActionProbs(t.state)[t.action.discreteAction.ordinal])
-            val ratio = exp(newLogProb - t.action.logProb)
+            val newLogProb = kotlin.math.ln(predictActionProbs(t.state)[t.action.discreteAction.ordinal].toDouble()).toFloat()
+            val ratio = exp((newLogProb - t.action.logProb).toDouble()).toFloat()
             
             val advantage = advantages[idx]
             val clippedRatio = ratio.coerceIn(1f - CLIP_EPSILON, 1f + CLIP_EPSILON)

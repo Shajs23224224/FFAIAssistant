@@ -1,5 +1,6 @@
 package com.ffai.assistant.rl.transformer
 
+import kotlin.math.exp
 import kotlin.math.sqrt
 
 /**
@@ -79,12 +80,12 @@ class MultiHeadAttention(
         val output = linearProjection(concatenated, wo ?: return AttentionOutput.empty(seqLen, embedDim))
         
         // Combinar attention weights de todas las cabezas (promedio)
-        val combinedAttention = combineAttentionWeights(headOutputs.map { it.attentionWeights })
+        val combinedAttention = combineAttentionWeights(headOutputs.map { headOut -> headOut.attentionWeights })
         
         return AttentionOutput(
             output = output,
             attentionWeights = combinedAttention,
-            headAttentions = headOutputs.map { it.attentionWeights }
+            headAttentions = headOutputs.map { headOut -> headOut.attentionWeights }
         )
     }
     
@@ -192,10 +193,10 @@ class MultiHeadAttention(
      */
     private fun softmaxMatrix(scores: Array<FloatArray>): Array<FloatArray> {
         return scores.map { row ->
-            val maxVal = row.maxOrNull() ?: 0f
-            val expRow = row.map { kotlin.math.exp(it - maxVal) }
-            val sumExp = expRow.sum()
-            expRow.map { it / sumExp }.toFloatArray()
+            val maxScore = row.maxOrNull() ?: 0f
+            val expShifted = row.map { exp((it - maxScore).toFloat()) }
+            val sumExp = expShifted.sum()
+            expShifted.map { expVal -> (expVal / sumExp).toFloat() }.toFloatArray()
         }.toTypedArray()
     }
     

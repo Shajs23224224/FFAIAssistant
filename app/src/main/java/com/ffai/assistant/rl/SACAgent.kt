@@ -110,7 +110,7 @@ class SACAgent(private val context: Context) {
         
         // Samplear acción discreta
         val actionIdx = sampleCategorical(actionProbs)
-        val logProb = log(actionProbs[actionIdx])
+        val logProb = kotlin.math.ln(actionProbs[actionIdx].toDouble()).toFloat()
         
         // Q-values para debugging
         val q1Value = predictQ(state, actionIdx, q1Net)
@@ -122,7 +122,7 @@ class SACAgent(private val context: Context) {
         
         return SACAction(
             discreteAction = ActionType.values().getOrElse(actionIdx) { ActionType.HOLD },
-            logProb = logProb,
+            logProb = logProb.toFloat(),
             continuousParams = rawAction
         )
     }
@@ -191,7 +191,7 @@ class SACAgent(private val context: Context) {
                 val minQNext = min(q1Next, q2Next)
                 
                 // Soft Q: Q - alpha * log(pi)
-                val softQ = minQNext - alpha * log(max(1e-6f, nextActionProbs[a]))
+                val softQ = minQNext - alpha * kotlin.math.ln(max(1e-6f, nextActionProbs[a]).toDouble()).toFloat()
                 targetQ += nextActionProbs[a] * softQ
             }
             
@@ -227,7 +227,7 @@ class SACAgent(private val context: Context) {
                 
                 // SAC objective: maximize E[Q - alpha * log(pi)]
                 // minimize E[alpha * log(pi) - Q]
-                policyLoss += actionProbs[a] * (alpha * log(max(1e-6f, actionProbs[a])) - minQ)
+                policyLoss += actionProbs[a] * (alpha * kotlin.math.ln(max(1e-6f, actionProbs[a]).toDouble()).toFloat() - minQ)
             }
             
             totalLoss += policyLoss
@@ -248,7 +248,7 @@ class SACAgent(private val context: Context) {
             var entropy = 0f
             for (a in 0 until NUM_ACTIONS) {
                 if (actionProbs[a] > 0) {
-                    entropy -= actionProbs[a] * log(actionProbs[a])
+                    entropy -= actionProbs[a] * kotlin.math.ln(actionProbs[a].toDouble()).toFloat()
                 }
             }
             totalEntropy += entropy

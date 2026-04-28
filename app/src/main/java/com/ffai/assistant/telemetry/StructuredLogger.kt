@@ -285,7 +285,9 @@ class StructuredLogger(
         val exportFile = File(context.getExternalFilesDir(null), "ffai_export_${System.currentTimeMillis()}.jsonl")
         
         logDir.listFiles()?.sortedBy { it.lastModified() }?.forEach { logFile ->
-            logFile.copyTo(exportFile, append = true)
+            val existingContent = if (exportFile.exists()) exportFile.readText() else ""
+            val newContent = existingContent + logFile.readText()
+            exportFile.writeText(newContent)
         }
         
         Logger.i(TAG, "Logs exported to ${exportFile.absolutePath}")
