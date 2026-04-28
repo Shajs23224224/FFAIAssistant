@@ -65,7 +65,7 @@ class DecisionEngine(
             reflexCount++
             val latency = System.currentTimeMillis() - startTime
             logStats("REFLEX", reflexAction, latency)
-            performanceMonitor?.measureReflex(latency)
+            performanceMonitor?.recordStageTime(com.ffai.assistant.telemetry.PerformanceMonitor.PipelineStage.RL_DECISION, latency)
 
             // Si es aim con coordenadas, usar AimController con PID
             if (reflexAction.type == ActionType.AIM && features != null && features.enemyPresent) {
@@ -88,7 +88,7 @@ class DecisionEngine(
                 tacticalCount++
                 val tacticalLatency = System.currentTimeMillis() - tacticalStart
                 logStats("FAST_TACTICAL", fastAction, tacticalLatency)
-                performanceMonitor?.measureDecision(tacticalLatency)
+                performanceMonitor?.recordStageTime(com.ffai.assistant.telemetry.PerformanceMonitor.PipelineStage.RL_DECISION, tacticalLatency)
 
                 // Si es acción de aim, actualizar controlador
                 if (fastAction.type == ActionType.AIM && features != null && features.enemyPresent) {

@@ -486,7 +486,7 @@ data class RLExperience(
     val reward: Float,
     val nextState: FloatArray,
     val done: Boolean,
-    val priority: Float = 1.0f
+    var priority: Float = 1.0f
 )
 
 data class DeepRLStats(

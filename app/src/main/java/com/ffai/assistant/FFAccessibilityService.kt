@@ -208,7 +208,7 @@ class FFAccessibilityService : AccessibilityService() {
             gameLoop?.onFrameAvailable(bitmap)
         }
         preprocessor = Preprocessor()
-        roiTracker = ROITracker()
+        roiTracker = ROITracker(screenWidth, screenHeight)
 
         // 3. Perception
         perceptionEngine = PerceptionEngine(roiTracker!!).apply {

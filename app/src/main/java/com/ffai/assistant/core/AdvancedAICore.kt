@@ -235,9 +235,10 @@ class AdvancedAICore(
             preprocessor = framePreprocessor,
             postProcessor = DetectionPostProcessor()
         )
-        thermalManager = ThermalManager { throttleLevel ->
-            Logger.w(TAG, "Thermal throttling: nivel $throttleLevel")
-            adaptiveInferencePipeline.onThermalThrottle(throttleLevel)
+        thermalManager = ThermalManager(context)
+        thermalManager.onThermalThreshold { thermalState ->
+            Logger.w(TAG, "Thermal throttling: estado $thermalState")
+            adaptiveInferencePipeline.onThermalThrottle(thermalState)
         }
         
         // Inicializar visión
@@ -726,9 +727,9 @@ class AdvancedAICore(
             framesProcessed = frameCount.get(),
             rlStats = deepRLCore.getStats(),
             rewardStats = rewardShaper.getStats(),
-            yoloDetections = if (::yoloDetector.isInitialized) yoloDetector.getStats().totalDetections else 0,
+            yoloDetections = if (::yoloDetector.isInitialized) yoloDetector.getStats().detectionCount else 0,
             ensembleRLStats = if (::ensembleRL.isInitialized) ensembleRL.getStats() else null,
-            performanceMetrics = if (::performanceMonitor.isInitialized) performanceMonitor.getStats() else null
+            performanceMetrics = if (::performanceMonitor.isInitialized) performanceMonitor.getMetrics() else null
         )
     }
 
@@ -832,7 +833,8 @@ suspend fun processFrameEnhanced(bitmap: android.graphics.Bitmap) {
             latencyMs = decision.latencyMs
         )
         
-        performanceMonitor.endFrame()
+        val totalLatency = System.currentTimeMillis() - frameStart
+        performanceMonitor.recordFrame(totalLatency)
         bitmap.recycle()
         return
     }
@@ -842,8 +844,7 @@ suspend fun processFrameEnhanced(bitmap: android.graphics.Bitmap) {
     // 1. PREPROCESAMIENTO (GPU)
     val preprocessStart = System.currentTimeMillis()
     val inputBuffer = framePreprocessor.preprocess(bitmap)
-    // PerformanceMonitor no tiene recordStageTime, usando measureDecision
-    performanceMonitor.measureDecision(System.currentTimeMillis() - preprocessStart)
+    performanceMonitor.recordStageTime(PerformanceMonitor.PipelineStage.PREPROCESS, System.currentTimeMillis() - preprocessStart)
     
     // 2. ANÁLISIS DE SITUACIÓN
     val situation = situationAnalyzer.analyze(
@@ -858,8 +859,7 @@ suspend fun processFrameEnhanced(bitmap: android.graphics.Bitmap) {
     // 3. INFERENCIA YOLO
     val yoloStart = System.currentTimeMillis()
     val detections = yoloDetector.detect(bitmap)
-    // Medir tiempo de inferencia YOLO
-    performanceMonitor.measureDecision(System.currentTimeMillis() - yoloStart)
+    performanceMonitor.recordStageTime(PerformanceMonitor.PipelineStage.YOLO_INFERENCE, System.currentTimeMillis() - yoloStart)
     
     // Fusionar con modelos legacy
     val fusedEnemies = visionFusionEngine.fuseEnemyDetections(
@@ -876,14 +876,12 @@ suspend fun processFrameEnhanced(bitmap: android.graphics.Bitmap) {
     
     // Seleccionar acción con ensemble
     val decision = ensembleRL.selectAction(state)
-    // Medir tiempo de decisión RL
-    performanceMonitor.measureDecision(System.currentTimeMillis() - rlStart)
+    performanceMonitor.recordStageTime(PerformanceMonitor.PipelineStage.RL_DECISION, System.currentTimeMillis() - rlStart)
     
     // 5. EJECUTAR ACCIÓN CON GESTUREENGINE
     val gestureStart = System.currentTimeMillis()
     executeEnhancedAction(decision, fusedEnemies)
-    // Medir tiempo de ejecución de gestos
-    performanceMonitor.measureReflex(System.currentTimeMillis() - gestureStart)
+    performanceMonitor.recordStageTime(PerformanceMonitor.PipelineStage.GESTURE_EXECUTION, System.currentTimeMillis() - gestureStart)
     
     // 6. APRENDIZAJE
     val reward = rewardEngine.calculateReward(
@@ -919,7 +917,7 @@ suspend fun processFrameEnhanced(bitmap: android.graphics.Bitmap) {
     
     // 8. ACTUALIZAR MÉTRICAS
     val totalLatency = System.currentTimeMillis() - frameStart
-    performanceMonitor.endFrame()
+    performanceMonitor.recordFrame(totalLatency)
     
     // Liberar bitmap nativo
     bitmap.recycle()
@@ -939,9 +937,9 @@ private fun buildStateVector(
         val offset = index * 20
         state[offset] = enemy.centerX() / gameConfig.screenWidth
         state[offset + 1] = enemy.centerY() / gameConfig.screenHeight
-        state[offset + 2] = enemy.confidence
-        state[offset + 3] = enemy.area / (gameConfig.screenWidth * gameConfig.screenHeight)
-        state[offset + 4] = if (enemy.classLabel == "enemy") 1f else 0f
+        state[offset + 2] = enemy.fusedConfidence
+        state[offset + 3] = enemy.area() / (gameConfig.screenWidth * gameConfig.screenHeight)
+        state[offset + 4] = if (enemy.hasYOLOConfirmation) 1f else 0f
     }
     
     // Situación (últimos 156 valores)
@@ -968,7 +966,7 @@ private fun executeEnhancedAction(
     when (decision.action) {
         ActionType.AIM -> {
             // Aim al enemigo más cercano
-            val target = enemies.maxByOrNull { it.confidence }
+            val target = enemies.maxByOrNull { it.fusedConfidence }
             target?.let {
                 gestureEngine.swipe(
                     startX = gameConfig.screenWidth / 2f,
@@ -1056,15 +1054,15 @@ private fun executeSuperAction(
         8 -> ActionType.HEAL
         9 -> ActionType.RELOAD
         10 -> ActionType.LOOT
-        11 -> ActionType.DRIVE
-        12 -> ActionType.SWIM
-        13 -> ActionType.SCOPE
+        11 -> ActionType.REVIVE
+        12 -> ActionType.ROTATE_LEFT
+        13 -> ActionType.ROTATE_RIGHT
         else -> ActionType.HOLD
     }
     
     when (actionType) {
         ActionType.AIM -> {
-            val target = enemies.maxByOrNull { it.confidence }
+            val target = enemies.maxByOrNull { it.fusedConfidence }
             target?.let {
                 gestureEngine.swipe(
                     startX = gameConfig.screenWidth / 2f,

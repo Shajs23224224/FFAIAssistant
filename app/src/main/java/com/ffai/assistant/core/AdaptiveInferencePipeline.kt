@@ -170,6 +170,16 @@ class AdaptiveInferencePipeline(
         )
     }
     
+    fun onThermalThrottle(thermalState: com.ffai.assistant.core.ThermalState) {
+        // Reducir modo de inferencia según el estado térmico
+        currentMode = when (thermalState) {
+            com.ffai.assistant.core.ThermalState.NORMAL -> currentMode // Mantener modo actual
+            com.ffai.assistant.core.ThermalState.MEDIUM -> ReasoningMode.MEDIUM
+            com.ffai.assistant.core.ThermalState.SHORT -> ReasoningMode.SHORT
+        }
+        Logger.w(TAG, "Thermal throttling aplicado: $thermalState, modo cambiado a: $currentMode")
+    }
+
     fun release() {
         scope.cancel()
     }

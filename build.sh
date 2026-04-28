@@ -11,8 +11,8 @@ NC='\033[0m' # No Color
 
 echo "🔧 Configurando entorno..."
 
-# Configurar Java 21 (LTS)
-export JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-amd64
+# Configurar Java 25 (LTS)
+export JAVA_HOME=/usr/lib/jvm/temurin-25-jdk-amd64
 export PATH=$JAVA_HOME/bin:$PATH
 
 # Configurar Android SDK
