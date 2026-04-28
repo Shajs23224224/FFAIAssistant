@@ -144,7 +144,7 @@ class TransformerAgent(private val context: Context) {
         val attentionMap = computeAttentionMap() ?: return emptyList()
         
         // Sumar attention por posición
-        return attentionMap.attentionWeights.map { row -> row.average() }
+        return attentionMap.attentionWeights.map { row -> row.average().toFloat() }
     }
     
     /**

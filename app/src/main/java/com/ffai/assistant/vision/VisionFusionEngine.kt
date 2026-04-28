@@ -337,7 +337,11 @@ private data class FusedDetection(
             velocityX = yoloSource?.velocityX ?: 0f,
             velocityY = yoloSource?.velocityY ?: 0f,
             predictedPosition = if (yoloSource != null) {
-                Pair(x + yoloSource.velocityX * 3, y + yoloSource.velocityY * 3)
+                com.ffai.assistant.model.PredictedPosition(
+                    x = x + yoloSource.velocityX * 3,
+                    y = y + yoloSource.velocityY * 3,
+                    timeMs = 100
+                )
             } else null
         )
     }
@@ -370,7 +374,7 @@ data class FusedEnemy(
     val trackId: Int,
     val velocityX: Float,
     val velocityY: Float,
-    val predictedPosition: Pair<Float, Float>?
+    val predictedPosition: com.ffai.assistant.model.PredictedPosition?
 ) {
     fun centerX(): Float = x + width / 2
     fun centerY(): Float = y + height / 2

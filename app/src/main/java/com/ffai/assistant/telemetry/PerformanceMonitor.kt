@@ -111,6 +111,11 @@ class PerformanceMonitor(private val scope: CoroutineScope) {
     /**
      * Obtiene métricas actuales.
      */
+    fun getStats(): PerformanceMetrics = getMetrics()
+    
+    /**
+     * Obtiene métricas actuales.
+     */
     fun getMetrics(): PerformanceMetrics {
         val stageMetrics = stageTimings.mapValues { (_, metrics) ->
             StagePerformance(

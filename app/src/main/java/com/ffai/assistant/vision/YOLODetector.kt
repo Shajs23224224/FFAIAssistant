@@ -409,4 +409,6 @@ data class YoloStats(
     val inferenceCount: Int,
     val averageLatencyMs: Long,
     val isGpuAccelerated: Boolean
-)
+) {
+    val totalDetections: Int get() = inferenceCount
+}

@@ -103,6 +103,36 @@ class PerformanceMonitor(private val context: Context) {
     }
     
     /**
+     * Mide tiempo de frame con latencia total.
+     */
+    fun recordFrame(totalLatencyMs: Long) {
+        frameCount++
+        totalFrameTimeMs += totalLatencyMs
+        lastFrameTimeMs = totalLatencyMs
+        
+        frameTimeHistory.addLast(totalLatencyMs)
+        if (frameTimeHistory.size > 30) {
+            frameTimeHistory.removeFirst()
+        }
+        
+        if (totalLatencyMs > TARGET_FRAME_TIME_MS) {
+            slowFrameCount++
+            consecutiveSlowFrames++
+            consecutiveFastFrames = 0
+        } else {
+            consecutiveSlowFrames = 0
+            consecutiveFastFrames++
+        }
+        
+        // Adaptar calidad si necesario
+        if (consecutiveSlowFrames >= 5) {
+            reduceQuality()
+        } else if (consecutiveFastFrames >= 30 && currentQualityLevel != QualityLevel.HIGH) {
+            increaseQuality()
+        }
+    }
+    
+    /**
      * Mide tiempo de decisión táctica.
      */
     fun measureDecision(decisionTimeMs: Long) {
@@ -188,6 +218,13 @@ class PerformanceMonitor(private val context: Context) {
             p95FrameTimeMs = calculatePercentile(0.95f),
             p99FrameTimeMs = calculatePercentile(0.99f)
         )
+    }
+    
+    /**
+     * Obtiene métricas de performance (alias para getStats).
+     */
+    fun getMetrics(): PerformanceStats {
+        return getStats()
     }
     
     /**
