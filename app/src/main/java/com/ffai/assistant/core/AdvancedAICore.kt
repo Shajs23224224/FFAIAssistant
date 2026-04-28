@@ -1123,8 +1123,23 @@ class AdvancedAICore(
             currentConfidence = if (::confidenceEngine.isInitialized) confidenceEngine.getCurrentConfidence() else 0.5f,
             loadedModels = if (::ensembleManager.isInitialized) ensembleManager.getLoadedModelsCount() else 0,
             framesProcessed = frameCount.get(),
-            rlStats = if (::deepRLCore.isInitialized) deepRLCore.getStats() else DeepRLStats(0, 0f, 0f, 0f, 0f, 0f),
-            rewardStats = if (::rewardShaper.isInitialized) rewardShaper.getStats() else ShaperRewardStats(0, 0, 0, 0, 0f, 0),
+            rlStats = if (::deepRLCore.isInitialized) deepRLCore.getStats() else DeepRLStats(
+                trainingSteps = 0,
+                episodes = 0,
+                epsilon = 0f,
+                bufferSize = 0,
+                averageQValue = 0f,
+                actionDistribution = emptyList(),
+                totalReward = 0f
+            ),
+            rewardStats = if (::rewardShaper.isInitialized) rewardShaper.getStats() else ShaperRewardStats(
+                totalKills = 0,
+                totalAllyKills = 0,
+                totalDeaths = 0,
+                totalFriendlyFire = 0,
+                cumulativeReward = 0f,
+                recentActionCount = 0
+            ),
             yoloDetections = if (::yoloDetector.isInitialized) yoloDetector.getStats().totalDetections else 0,
             ensembleRLStats = if (::ensembleRL.isInitialized) ensembleRL.getStats() else null,
             performanceMetrics = if (::performanceMonitor.isInitialized) performanceMonitor.getMetrics() else null,
