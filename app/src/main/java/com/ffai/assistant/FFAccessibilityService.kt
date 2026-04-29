@@ -15,6 +15,7 @@ import com.ffai.assistant.config.Constants
 import com.ffai.assistant.config.GameConfig
 import com.ffai.assistant.core.*
 import com.ffai.assistant.core.AdvancedAICore
+import com.ffai.assistant.core.ServiceOrchestrator
 import com.ffai.assistant.action.ActionType
 import com.ffai.assistant.learning.MemoryManager
 import com.ffai.assistant.memory.TacticalMemory
@@ -89,7 +90,15 @@ class FFAccessibilityService : AccessibilityService() {
     private var frameCount = 0
     private var lastFpsTime = 0L
     private var currentFps = 0
-    
+
+    // Health monitoring for ServiceOrchestrator
+    private var lastFrameTimestamp = 0L
+    private var lastActionTimestamp = 0L
+    private var healthCheckJob: Job? = null
+
+    // FASE 2: Notificación persistente de estado
+    private var statusNotificationManager: com.ffai.assistant.core.StatusNotificationManager? = null
+
     // Receiver para escuchar frames del ScreenCaptureService
     private val captureReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -175,6 +184,14 @@ class FFAccessibilityService : AccessibilityService() {
             receiverRegistered = false
         }
 
+        // FASE 2: Detener notificación persistente
+        statusNotificationManager?.stop()
+        statusNotificationManager = null
+
+        // Detener health monitoring
+        healthCheckJob?.cancel()
+        healthCheckJob = null
+
         serviceScope.cancel()
         instance = null
         isServiceRunning = false
@@ -187,7 +204,30 @@ class FFAccessibilityService : AccessibilityService() {
         Logger.i("Servicio de accesibilidad conectado")
         isServiceRunning = true
 
+        // Inicializar orchestrator si no lo está
+        ServiceOrchestrator.init(this@FFAccessibilityService)
+
+        // Reportar estado a orchestrator
+        ServiceOrchestrator.transition(
+            ServiceOrchestrator.SystemState.ACCESSIBILITY_READY,
+            "AccessibilityService connected"
+        )
+        ServiceOrchestrator.reportHeartbeat(ServiceOrchestrator.Component.ACCESSIBILITY_SERVICE)
+
         registerCaptureReceiver()
+
+        // FASE 2: Iniciar notificación persistente de estado
+        statusNotificationManager = com.ffai.assistant.core.StatusNotificationManager(this)
+        statusNotificationManager?.start()
+
+        // Registrar listener para cambios de estado (actualiza notificación)
+        ServiceOrchestrator.addStateChangeListener { from, to, reason ->
+            statusNotificationManager?.updateNow()
+            Logger.i("[NOTIFICATION] State changed: $from -> $to, updating notification")
+        }
+
+        // Iniciar health monitoring
+        startHealthMonitoring()
 
         // Inicializar nueva arquitectura híbrida
         serviceScope.launch(Dispatchers.Default) {
@@ -195,6 +235,11 @@ class FFAccessibilityService : AccessibilityService() {
                 initHybridArchitecture()
             } catch (e: Exception) {
                 Logger.e("Error inicializando arquitectura híbrida", e)
+                ServiceOrchestrator.reportIssue(
+                    ServiceOrchestrator.Component.ACCESSIBILITY_SERVICE,
+                    ServiceOrchestrator.Issue.CRASHED,
+                    "Architecture init failed: ${e.message}"
+                )
                 updateStatus("Error init: ${e.message}")
             }
         }
@@ -420,27 +465,15 @@ class FFAccessibilityService : AccessibilityService() {
             return
         }
 
+        // Reportar frame recibido para health check
+        ServiceOrchestrator.reportFrameProcessed()
+        lastFrameTimestamp = System.currentTimeMillis()
+
         // NUEVO PIPELINE: YOLO + Ensemble RL + GestureEngine (Fases 1-6)
+        // Usar processFrameProtected para protección completa contra crashes
         if (useEnhancedPipeline && useAdvancedAI) {
             serviceScope.launch(Dispatchers.Default) {
-                try {
-                    // Usar nuevo pipeline del AdvancedAICore
-                    // Nota: processFrameEnhanced es suspend, así que usamos launch
-                    advancedAICore?.processFrameEnhanced(bitmap)
-                    
-                    // Track FPS
-                    frameCount++
-                    val now = System.currentTimeMillis()
-                    if (now - lastFpsTime >= 1000) {
-                        currentFps = frameCount
-                        frameCount = 0
-                        lastFpsTime = now
-                        Logger.d("FPS (Enhanced): $currentFps")
-                    }
-                } catch (e: Exception) {
-                    Logger.e("Error en pipeline mejorado", e)
-                    bitmap.recycle()
-                }
+                processFrameProtected(bitmap)
             }
             return
         }
@@ -506,10 +539,87 @@ class FFAccessibilityService : AccessibilityService() {
         }
         sendBroadcast(intent)
     }
-    
+
     fun isAIActive(): Boolean = isRunning
     fun getCurrentFps(): Int = currentFps
     fun getBrain(): Brain? = brain
+
+    /**
+     * Inicia el health monitoring del sistema.
+     * Detecta cuando la IA se "congela" o deja de procesar.
+     */
+    private fun startHealthMonitoring() {
+        if (healthCheckJob != null) {
+            Logger.w("Health monitoring already running")
+            return
+        }
+
+        Logger.i("[HEALTH] Starting health monitoring")
+        ServiceOrchestrator.startHealthMonitoring(serviceScope)
+
+        // Job local para reportar frames y acciones
+        healthCheckJob = serviceScope.launch {
+            while (isActive) {
+                delay(5000) // Cada 5 segundos
+
+                // Reportar a orchestrator
+                if (lastFrameTimestamp > 0) {
+                    ServiceOrchestrator.reportFrameProcessed()
+                }
+                if (lastActionTimestamp > 0) {
+                    ServiceOrchestrator.reportActionExecuted()
+                }
+            }
+        }
+    }
+
+    /**
+     * Procesa un frame con protección completa contra excepciones.
+     * Un fallo en un componente no debe matar todo el sistema.
+     */
+    private suspend fun processFrameProtected(bitmap: Bitmap) {
+        val frameStart = System.currentTimeMillis()
+
+        try {
+            // NUEVO PIPELINE: YOLO + Ensemble RL + GestureEngine
+            if (useEnhancedPipeline && useAdvancedAI) {
+                try {
+                    advancedAICore?.processFrameEnhanced(bitmap)
+                    lastFrameTimestamp = System.currentTimeMillis()
+
+                    // Track FPS
+                    frameCount++
+                    val now = System.currentTimeMillis()
+                    if (now - lastFpsTime >= 1000) {
+                        currentFps = frameCount
+                        frameCount = 0
+                        lastFpsTime = now
+                        Logger.d("FPS (Enhanced): $currentFps")
+                    }
+
+                    // Reportar acción si hubo
+                    lastActionTimestamp = System.currentTimeMillis()
+                } catch (e: Exception) {
+                    Logger.e("Error en pipeline mejorado", e)
+                    ServiceOrchestrator.reportIssue(
+                        ServiceOrchestrator.Component.AI_CORE,
+                        ServiceOrchestrator.Issue.INFERENCE_FAILED,
+                        "Enhanced pipeline failed: ${e.message}"
+                    )
+                }
+                return
+            }
+
+            // Legacy paths...
+        } catch (e: Exception) {
+            Logger.e("[CRITICAL] Error protegido en processFrame", e)
+            ServiceOrchestrator.reportIssue(
+                ServiceOrchestrator.Component.AI_CORE,
+                ServiceOrchestrator.Issue.CRASHED,
+                "Frame processing failed: ${e.message}"
+            )
+        }
+    }
     
     /**
      * Obtiene estadísticas del nuevo pipeline mejorado.

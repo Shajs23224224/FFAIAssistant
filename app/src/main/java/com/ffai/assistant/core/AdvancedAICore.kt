@@ -18,6 +18,7 @@ import com.ffai.assistant.core.ReasoningMode
 import com.ffai.assistant.model.StrategicEnsembleResult
 import com.ffai.assistant.model.TacticalEnsembleResult
 import com.ffai.assistant.core.ConfidenceResult
+import com.ffai.assistant.core.ServiceOrchestrator
 import com.ffai.assistant.telemetry.PerformanceMonitor.PipelineStage
 import com.ffai.assistant.navigation.MapInterpreter
 import com.ffai.assistant.overlay.AnalysisArea
@@ -768,153 +769,251 @@ class AdvancedAICore(
      * Este método utiliza YOLO + Ensemble RL + GestureEngine
      * o SuperAgentCoordinator (World Model + Transformer + ICM + Hierarchical + MAML)
      * PÚBLICO: Llamado desde FFAccessibilityService
+     *
+     * CRÍTICO: Protegido con try-catch para evitar que un fallo de modelo mate el sistema.
+     * FASE 2: Degradación automática - si SuperAgent falla, switchea a pipeline legacy.
      */
     suspend fun processFrameEnhanced(bitmap: android.graphics.Bitmap) {
         val frameStart = System.currentTimeMillis()
-        
+
+        // FASE 2: Verificar si SuperAgent está degradado
+        val superAgentDegraded = ServiceOrchestrator.isComponentDegraded(
+            ServiceOrchestrator.Component.SUPER_AGENT
+        )
+
         // ========== PIPELINE AVANZADO CON SUPER AGENT ==========
-        if (useSuperAgent && ::superAgentCoordinator.isInitialized) {
-            val superStart = System.currentTimeMillis()
-            
-            // 1. Preparar estado (256 dims) desde YOLO
+        // Solo usar SuperAgent si: está inicializado, activado, y NO degradado
+        if (useSuperAgent && ::superAgentCoordinator.isInitialized && !superAgentDegraded) {
+            var superAgentSuccess = false
+            try {
+                val superStart = System.currentTimeMillis()
+
+                // 1. Preparar estado (256 dims) desde YOLO
+                val detections = try {
+                    yoloDetector.detect(bitmap)
+                } catch (e: Exception) {
+                    Logger.e(TAG, "YOLO detection failed, continuing with empty detections", e)
+                    ServiceOrchestrator.reportIssue(
+                        ServiceOrchestrator.Component.YOLO_DETECTOR,
+                        ServiceOrchestrator.Issue.INFERENCE_FAILED,
+                        e.message ?: "Unknown"
+                    )
+                    emptyList<com.ffai.assistant.vision.Detection>()
+                }
+
+                val fusedEnemies = visionFusionEngine.fuseEnemyDetections(
+                    yoloDetections = detections,
+                    combatOutput = null,
+                    visionOutput = null
+                )
+                val situation = situationAnalyzer.analyze(
+                    enemies = fusedEnemies,
+                    trackedObjects = emptyList(),
+                    hp = 100,
+                    ammo = 30,
+                    screenWidth = 1920,
+                    screenHeight = 1080
+                )
+                val state = buildStateVector(fusedEnemies, situation)
+
+                // 2. SuperAgentCoordinator decide (integra: WorldModel, Transformer, ICM, Hierarchical, MAML)
+                val decision = try {
+                    superAgentCoordinator.decide(bitmap, state)
+                } catch (e: Exception) {
+                    Logger.e(TAG, "SuperAgent decision failed, using fallback", e)
+                    ServiceOrchestrator.reportIssue(
+                        ServiceOrchestrator.Component.SUPER_AGENT,
+                        ServiceOrchestrator.Issue.INFERENCE_FAILED,
+                        e.message ?: "Unknown"
+                    )
+                    // Fallback: decision segura (HOLD)
+                    com.ffai.assistant.rl.superagent.SuperAgentDecision(
+                        action = 8, // HOLD
+                        confidence = 0.0f,
+                        goal = com.ffai.assistant.rl.hierarchical.MetaController.Goal.ENGAGE,
+                        latencyMs = 0,
+                        components = "FALLBACK"
+                    )
+                }
+
+                performanceMonitor.measureDecision(System.currentTimeMillis() - superStart)
+
+                // 3. Ejecutar acción con GestureEngine
+                try {
+                    executeSuperAction(decision, fusedEnemies)
+                } catch (e: Exception) {
+                    Logger.e(TAG, "Action execution failed: ${decision.action}", e)
+                    ServiceOrchestrator.reportIssue(
+                        ServiceOrchestrator.Component.GESTURE_CONTROLLER,
+                        ServiceOrchestrator.Issue.INFERENCE_FAILED,
+                        "Action ${decision.action}: ${e.message}"
+                    )
+                }
+
+                // 4. Logging del pipeline avanzado
+                structuredLogger.logDecision(
+                    timestamp = System.currentTimeMillis(),
+                    state = mapOf(
+                        "enemies" to fusedEnemies.size,
+                        "goal" to decision.goal.name,
+                        "super_action" to decision.action,
+                        "pipeline" to "SuperAgent"
+                    ),
+                    action = when(decision.action) {
+                        0 -> ActionType.AIM
+                        1 -> ActionType.SHOOT
+                        2 -> ActionType.MOVE_FORWARD
+                        3 -> ActionType.MOVE_BACKWARD
+                        4 -> ActionType.MOVE_LEFT
+                        5 -> ActionType.MOVE_RIGHT
+                        6 -> ActionType.JUMP
+                        7 -> ActionType.CROUCH
+                        else -> ActionType.HOLD
+                    },
+                    confidence = decision.confidence,
+                    reasoning = "SuperAgent: Goal=${decision.goal}, Components=${decision.components}",
+                    latencyMs = decision.latencyMs
+                )
+
+                val totalLatency = System.currentTimeMillis() - frameStart
+                performanceMonitor.recordFrame(totalLatency)
+                superAgentSuccess = true
+
+                // FASE 2: Reportar éxito para recuperación automática
+                ServiceOrchestrator.reportSuccess(ServiceOrchestrator.Component.SUPER_AGENT)
+
+            } catch (e: Exception) {
+                // Catch-all: nunca debe salir excepción de processFrameEnhanced
+                Logger.e(TAG, "CRITICAL: Unhandled exception in processFrameEnhanced", e)
+                ServiceOrchestrator.reportIssue(
+                    ServiceOrchestrator.Component.AI_CORE,
+                    ServiceOrchestrator.Issue.CRASHED,
+                    "Unhandled: ${e.message}"
+                )
+            } finally {
+                bitmap.recycle()
+            }
+
+            // Si SuperAgent tuvo éxito, terminamos aquí
+            if (superAgentSuccess) {
+                return
+            }
+
+            // Si falló (pero no explotó), continuamos al pipeline legacy como fallback
+            Logger.w(TAG, "SuperAgent failed, falling back to legacy pipeline")
+        } else if (superAgentDegraded) {
+            Logger.i(TAG, "SuperAgent is DEGRADED, using legacy pipeline")
+        }
+        
+        // ========== PIPELINE LEGACY (YOLO + Ensemble RL) ==========
+        try {
+            // 1. PREPROCESAMIENTO (GPU)
             val preprocessStart = System.currentTimeMillis()
-            val detections = yoloDetector.detect(bitmap)
-            val fusedEnemies = visionFusionEngine.fuseEnemyDetections(
-                yoloDetections = detections,
-                combatOutput = null,
-                visionOutput = null
-            )
+            val inputBuffer = framePreprocessor.preprocess(bitmap)
+            performanceMonitor.recordStageTime(PipelineStage.PREPROCESS, System.currentTimeMillis() - preprocessStart)
+
+            // 2. ANÁLISIS DE SITUACIÓN
             val situation = situationAnalyzer.analyze(
-                enemies = fusedEnemies,
+                enemies = emptyList(),
                 trackedObjects = emptyList(),
                 hp = 100,
                 ammo = 30,
                 screenWidth = 1920,
                 screenHeight = 1080
             )
+
+            // 3. INFERENCIA YOLO - protegida
+            val detections = try {
+                yoloDetector.detect(bitmap)
+            } catch (e: Exception) {
+                Logger.e(TAG, "YOLO inference failed in legacy pipeline, continuing", e)
+                emptyList<com.ffai.assistant.vision.Detection>()
+            }
+            performanceMonitor.recordStageTime(PipelineStage.YOLO_INFERENCE, System.currentTimeMillis() - preprocessStart)
+
+            // Fusionar con modelos legacy
+            val fusedEnemies = visionFusionEngine.fuseEnemyDetections(
+                yoloDetections = detections,
+                combatOutput = null,
+                visionOutput = null
+            )
+
+            // Construir estado (256 dims) ANTES de usarlo
             val state = buildStateVector(fusedEnemies, situation)
-            
-            // 2. SuperAgentCoordinator decide (integra: WorldModel, Transformer, ICM, Hierarchical, MAML)
-            val decision = superAgentCoordinator.decide(bitmap, state)
-            
-            performanceMonitor.measureDecision(System.currentTimeMillis() - superStart)
-            
-            // 3. Ejecutar acción con GestureEngine
-            executeSuperAction(decision, fusedEnemies)
-            
-            // 4. Logging del pipeline avanzado
+
+            // 4. ENSEMBLE RL DECISION - protegida
+            val rlStart = System.currentTimeMillis()
+            val decision = try {
+                ensembleRL.selectAction(state)
+            } catch (e: Exception) {
+                Logger.e(TAG, "EnsembleRL failed, using fallback action", e)
+                // Fallback: HOLD action
+                com.ffai.assistant.rl.ensemble.DecisionResult(
+                    action = ActionType.HOLD,
+                    confidence = 0f,
+                    primaryAgent = null,
+                    consensus = 0f
+                )
+            }
+            performanceMonitor.recordStageTime(PipelineStage.RL_DECISION, System.currentTimeMillis() - rlStart)
+
+            // 5. EJECUTAR ACCIÓN CON GESTUREENGINE - protegida
+            val gestureStart = System.currentTimeMillis()
+            try {
+                executeEnhancedAction(decision, fusedEnemies)
+            } catch (e: Exception) {
+                Logger.e(TAG, "Enhanced action execution failed: ${decision.action}", e)
+            }
+            performanceMonitor.recordStageTime(PipelineStage.GESTURE_EXECUTION, System.currentTimeMillis() - gestureStart)
+
+            // 6. APRENDIZAJE - protegido
+            try {
+                val reward = rewardEngine.calculateReward(
+                    action = decision.action,
+                    currentHealth = 100,
+                    currentAmmo = 30,
+                    enemies = fusedEnemies,
+                    screenWidth = gameConfig.screenWidth,
+                    screenHeight = gameConfig.screenHeight
+                )
+
+                val nextState = buildStateVector(fusedEnemies, situation)
+                ensembleRL.storeExperience(state, decision.action, reward.totalReward, nextState, false)
+                ensembleRL.trainStep()
+            } catch (e: Exception) {
+                Logger.e(TAG, "Learning step failed, continuing", e)
+            }
+
+            // 7. LOGGING
             structuredLogger.logDecision(
                 timestamp = System.currentTimeMillis(),
                 state = mapOf(
                     "enemies" to fusedEnemies.size,
-                    "goal" to decision.goal.name,
-                    "super_action" to decision.action,
-                    "pipeline" to "SuperAgent"
+                    "threat" to situation.level.name,
+                    "mode" to situation.recommendedMode.name,
+                    "pipeline" to "Legacy"
                 ),
-                action = when(decision.action) {
-                    0 -> ActionType.AIM
-                    1 -> ActionType.SHOOT
-                    2 -> ActionType.MOVE_FORWARD
-                    3 -> ActionType.MOVE_BACKWARD
-                    4 -> ActionType.MOVE_LEFT
-                    5 -> ActionType.MOVE_RIGHT
-                    6 -> ActionType.JUMP
-                    7 -> ActionType.CROUCH
-                    else -> ActionType.HOLD
-                },
+                action = decision.action,
                 confidence = decision.confidence,
-                reasoning = "SuperAgent: Goal=${decision.goal}, Components=${decision.components}",
-                latencyMs = decision.latencyMs
+                reasoning = "Ensemble: ${decision.primaryAgent?.name ?: "none"}, Consensus: ${decision.consensus}",
+                latencyMs = System.currentTimeMillis() - frameStart
             )
-            
+
+            // 8. ACTUALIZAR MÉTRICAS
             val totalLatency = System.currentTimeMillis() - frameStart
             performanceMonitor.recordFrame(totalLatency)
-            bitmap.recycle()
-            return
+
+        } catch (e: Exception) {
+            // Catch-all para pipeline legacy
+            Logger.e(TAG, "CRITICAL: Unhandled exception in legacy pipeline", e)
+        } finally {
+            // Liberar bitmap nativo siempre
+            try {
+                bitmap.recycle()
+            } catch (e: Exception) {
+                Logger.w(TAG, "Bitmap recycle failed", e)
+            }
         }
-        
-        // ========== PIPELINE LEGACY (YOLO + Ensemble RL) ==========
-        
-        // 1. PREPROCESAMIENTO (GPU)
-        val preprocessStart = System.currentTimeMillis()
-        val inputBuffer = framePreprocessor.preprocess(bitmap)
-        performanceMonitor.recordStageTime(PipelineStage.PREPROCESS, System.currentTimeMillis() - preprocessStart)
-        
-        // 2. ANÁLISIS DE SITUACIÓN
-        val situation = situationAnalyzer.analyze(
-            enemies = emptyList(),
-            trackedObjects = emptyList(),
-            hp = 100,
-            ammo = 30,
-            screenWidth = 1920,
-            screenHeight = 1080
-        )
-        
-        // 3. INFERENCIA YOLO
-        val yoloStart = System.currentTimeMillis()
-        val detections = yoloDetector.detect(bitmap)
-        performanceMonitor.recordStageTime(PipelineStage.YOLO_INFERENCE, System.currentTimeMillis() - yoloStart)
-        
-        // Fusionar con modelos legacy
-        val fusedEnemies = visionFusionEngine.fuseEnemyDetections(
-            yoloDetections = detections,
-            combatOutput = null,
-            visionOutput = null
-        )
-        
-        // 4. ENSEMBLE RL DECISION
-        val rlStart = System.currentTimeMillis()
-        
-        // Construir estado (256 dims)
-        val state = buildStateVector(fusedEnemies, situation)
-        
-        // Seleccionar acción con ensemble
-        val decision = ensembleRL.selectAction(state)
-        performanceMonitor.recordStageTime(PipelineStage.RL_DECISION, System.currentTimeMillis() - rlStart)
-        
-        // 5. EJECUTAR ACCIÓN CON GESTUREENGINE
-        val gestureStart = System.currentTimeMillis()
-        executeEnhancedAction(decision, fusedEnemies)
-        performanceMonitor.recordStageTime(PipelineStage.GESTURE_EXECUTION, System.currentTimeMillis() - gestureStart)
-        
-        // 6. APRENDIZAJE
-        val reward = rewardEngine.calculateReward(
-            action = decision.action,
-            currentHealth = 100,
-            currentAmmo = 30,
-            enemies = fusedEnemies,
-            screenWidth = gameConfig.screenWidth,
-            screenHeight = gameConfig.screenHeight
-        )
-        
-        // Almacenar experiencia
-        val nextState = buildStateVector(fusedEnemies, situation)
-        ensembleRL.storeExperience(state, decision.action, reward.totalReward, nextState, false)
-        
-        // Entrenar
-        ensembleRL.trainStep()
-        
-        // 7. LOGGING
-        structuredLogger.logDecision(
-            timestamp = System.currentTimeMillis(),
-            state = mapOf(
-                "enemies" to fusedEnemies.size,
-                "threat" to situation.level.name,
-                "mode" to situation.recommendedMode.name,
-                "pipeline" to "Legacy"
-            ),
-            action = decision.action,
-            confidence = decision.confidence,
-            reasoning = "Ensemble: ${decision.primaryAgent?.name ?: "none"}, Consensus: ${decision.consensus}",
-            latencyMs = System.currentTimeMillis() - frameStart
-        )
-        
-        // 8. ACTUALIZAR MÉTRICAS
-        val totalLatency = System.currentTimeMillis() - frameStart
-        performanceMonitor.recordFrame(totalLatency)
-        
-        // Liberar bitmap nativo
-        bitmap.recycle()
     }
 
     /**

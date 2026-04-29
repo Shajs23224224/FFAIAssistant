@@ -27,6 +27,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.ffai.assistant.action.Action
 import com.ffai.assistant.capture.ScreenCaptureService
+import com.ffai.assistant.core.ServiceOrchestrator
 import com.ffai.assistant.decision.NeuralNetwork
 import com.ffai.assistant.utils.Config
 import com.ffai.assistant.utils.Logger
@@ -48,6 +49,8 @@ class MainActivity : AppCompatActivity() {
     private var isServiceEnabled = false
     private var isCapturing = false
     private var receiverRegistered = false
+    private var recoveryDialogShown = false
+    private var fatalErrorDialogShown = false
     
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -139,16 +142,25 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        
+
+        // Inicializar orchestrator primero (gestiona estado global)
+        ServiceOrchestrator.init(this)
+
         initViews()
         loadSettings()
         registerReceivers()
         ensureBatteryOptimizationExemption()
-        
+
+        // Registrar listener para cambios de estado del sistema
+        registerOrchestratorListener()
+
+        // Verificar si necesitamos recuperación (app murió anteriormente)
+        checkRecoveryState()
+
         // Iniciar KeepAliveService para mantener la app activa en segundo plano
         startKeepAliveService()
-        
-        Logger.i("MainActivity creada - IA 100% Local")
+
+        Logger.i("MainActivity creada - IA 100% Local (Orchestrator initialized)")
     }
     
     private fun startKeepAliveService() {
@@ -352,5 +364,136 @@ class MainActivity : AppCompatActivity() {
             Logger.w("MainActivity: No se pudo solicitar exclusión de batería", e)
         }
     }
-    
+
+    /**
+     * Registra listener para cambios de estado del ServiceOrchestrator.
+     * Permite reaccionar a transiciones de estado del sistema.
+     */
+    private fun registerOrchestratorListener() {
+        ServiceOrchestrator.addStateChangeListener { from, to, reason ->
+            runOnUiThread {
+                Logger.i("MainActivity: State $from → $to ($reason)")
+
+                // Actualizar UI según estado
+                when (to) {
+                    ServiceOrchestrator.SystemState.ACTIVE -> {
+                        tvStatus.text = getString(R.string.status_format, "Activo - IA procesando")
+                    }
+                    ServiceOrchestrator.SystemState.DEGRADED_MODE -> {
+                        tvStatus.text = getString(R.string.status_format, "Degradado - Capacidad reducida")
+                    }
+                    ServiceOrchestrator.SystemState.RECOVERING -> {
+                        tvStatus.text = getString(R.string.status_format, "Recuperando...")
+                    }
+                    ServiceOrchestrator.SystemState.FATAL_ERROR -> {
+                        tvStatus.text = getString(R.string.status_format, "Error crítico")
+                        if (!fatalErrorDialogShown) {
+                            showFatalErrorDialog(reason)
+                        }
+                    }
+                    ServiceOrchestrator.SystemState.PERMISSIONS_REQUIRED -> {
+                        tvStatus.text = getString(R.string.status_format, "Permisos requeridos")
+                    }
+                    else -> { /* No UI update needed */ }
+                }
+            }
+        }
+    }
+
+    /**
+     * Verifica si la app necesita recuperación tras un reinicio/crash.
+     * Se basa en el estado persistido por ServiceOrchestrator.
+     */
+    private fun checkRecoveryState() {
+        val currentState = ServiceOrchestrator.state.value
+
+        when (currentState) {
+            ServiceOrchestrator.SystemState.RECOVERING -> {
+                // La app estaba activa y murió - ofrecer recuperación
+                if (!recoveryDialogShown) {
+                    showRecoveryDialog()
+                }
+            }
+            ServiceOrchestrator.SystemState.PERMISSIONS_REQUIRED -> {
+                // Necesitamos re-autorizar MediaProjection
+                Logger.i("MainActivity: MediaProjection re-authorization required")
+                // El usuario necesita activar manualmente
+            }
+            else -> {
+                // Estado normal
+                Logger.i("MainActivity: Normal startup, state=$currentState")
+            }
+        }
+    }
+
+    /**
+     * Muestra diálogo de recuperación cuando la app detecta que estaba
+     * activa anteriormente y necesita reinicio.
+     */
+    private fun showRecoveryDialog() {
+        recoveryDialogShown = true
+
+        AlertDialog.Builder(this)
+            .setTitle("IA Detenida")
+            .setMessage("El sistema detuvo la IA. Esto puede haber ocurrido por:\n\n" +
+                      "• Optimización de batería\n" +
+                      "• Límite de memoria\n" +
+                      "• Actualización del sistema\n\n" +
+                      "¿Desea reactivarla?")
+            .setPositiveButton("Reactivar IA") { _, _ ->
+                attemptRecovery()
+            }
+            .setNegativeButton("Más tarde") { _, _ ->
+                Logger.i("MainActivity: User postponed recovery")
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    /**
+     * Intenta recuperar el sistema a un estado operativo.
+     * Esta función se llama desde el diálogo de recuperación o automáticamente.
+     */
+    private fun attemptRecovery() {
+        Logger.i("MainActivity: Attempting recovery...")
+
+        // Verificar si tenemos accesibilidad
+        if (!isServiceEnabled) {
+            showEnableAccessibilityDialog()
+            return
+        }
+
+        // Intentar iniciar captura (requerirá MediaProjection si no está autorizado)
+        ServiceOrchestrator.transition(
+            ServiceOrchestrator.SystemState.CAPTURE_AUTHORIZED,
+            "User initiated recovery"
+        )
+        requestMediaProjection()
+    }
+
+    /**
+     * Muestra diálogo de error fatal cuando el sistema no puede recuperarse.
+     */
+    private fun showFatalErrorDialog(reason: String) {
+        fatalErrorDialogShown = true
+
+        AlertDialog.Builder(this)
+            .setTitle("Error Crítico del Sistema")
+            .setMessage("La IA no puede continuar operando.\n\n" +
+                      "Motivo: $reason\n\n" +
+                      "Pasos recomendados:\n" +
+                      "1. Reinicie la aplicación\n" +
+                      "2. Verifique permisos de accesibilidad\n" +
+                      "3. Reinstale si el problema persiste")
+            .setPositiveButton("Entendido") { _, _ ->
+                fatalErrorDialogShown = false
+            }
+            .setNeutralButton("Ver Logs") { _, _ ->
+                // Podríamos abrir una pantalla de logs aquí
+                fatalErrorDialogShown = false
+            }
+            .setCancelable(false)
+            .show()
+    }
+
 }

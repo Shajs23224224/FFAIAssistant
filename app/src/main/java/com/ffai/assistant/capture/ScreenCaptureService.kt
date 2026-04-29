@@ -28,6 +28,7 @@ import androidx.core.app.NotificationCompat
 import com.ffai.assistant.MainActivity
 import com.ffai.assistant.R
 import com.ffai.assistant.config.Constants
+import com.ffai.assistant.core.ServiceOrchestrator
 import com.ffai.assistant.utils.Config
 import com.ffai.assistant.utils.Logger
 import kotlinx.coroutines.*
@@ -51,8 +52,9 @@ class ScreenCaptureService : Service() {
         const val NOTIFICATION_CHANNEL_ID = "screen_capture_channel"
         const val NOTIFICATION_ID = 1001
         
-        const val MAX_RETRY_ATTEMPTS = 3
-        const val RETRY_DELAY_MS = 1000L
+        const val MAX_RETRY_ATTEMPTS = 5
+        const val RETRY_DELAY_MS = 2000L
+        const val BACKOFF_MULTIPLIER = 2.0
         
         @Volatile
         var isRunning = false
@@ -79,6 +81,9 @@ class ScreenCaptureService : Service() {
     private var frameCount = 0
     private var lastFpsTime = 0L
     private var currentFps = 0
+
+    // Retry tracking with exponential backoff
+    private var retryAttempt = 0
     
     // SocketIO integration - disabled (classes not available)
     // private lateinit var binaryStreamManager: BinaryStreamManager
@@ -215,35 +220,73 @@ class ScreenCaptureService : Service() {
         if (attempt >= MAX_RETRY_ATTEMPTS) {
             Logger.e("ScreenCaptureService: Máximo de reintentos ($MAX_RETRY_ATTEMPTS) alcanzado")
             Config.setCaptureActive(false)
+            ServiceOrchestrator.transition(
+                ServiceOrchestrator.SystemState.FATAL_ERROR,
+                "Max capture retries exceeded"
+            )
+            ServiceOrchestrator.reportIssue(
+                ServiceOrchestrator.Component.CAPTURE_SERVICE,
+                ServiceOrchestrator.Issue.CRASHED,
+                "Max retries exceeded after $MAX_RETRY_ATTEMPTS attempts"
+            )
             reportError("No se pudo iniciar captura después de $MAX_RETRY_ATTEMPTS intentos")
             stopSelf()
             return
         }
-        
+
+        retryAttempt = attempt
+
         try {
             startCapture(resultCode, data)
+            retryAttempt = 0  // Reset en éxito
+            ServiceOrchestrator.transition(
+                ServiceOrchestrator.SystemState.CAPTURE_AUTHORIZED,
+                "Capture started successfully"
+            )
+            ServiceOrchestrator.reportHeartbeat(ServiceOrchestrator.Component.CAPTURE_SERVICE)
         } catch (e: SecurityException) {
-            Logger.e("ScreenCaptureService: SecurityException en intento ${attempt + 1}", e)
-            if (attempt < MAX_RETRY_ATTEMPTS - 1) {
-                Logger.i("ScreenCaptureService: Reintentando en ${RETRY_DELAY_MS}ms...")
-                backgroundHandler?.postDelayed({
-                    cleanup()
-                    startCaptureWithRetry(resultCode, data, attempt + 1)
-                }, RETRY_DELAY_MS)
-            } else {
-                Config.setCaptureActive(false)
-                reportError("Permiso de seguridad denegado: ${e.message}")
-                stopSelf()
-            }
+            // SecurityException = permiso revocado, no reintentar
+            Logger.e("ScreenCaptureService: SecurityException - permiso revocado", e)
+            Config.setCaptureActive(false)
+            ServiceOrchestrator.transition(
+                ServiceOrchestrator.SystemState.PERMISSIONS_REQUIRED,
+                "MediaProjection permission revoked"
+            )
+            ServiceOrchestrator.reportIssue(
+                ServiceOrchestrator.Component.CAPTURE_SERVICE,
+                ServiceOrchestrator.Issue.PERMISSION_REVOKED,
+                "SecurityException: ${e.message}"
+            )
+            reportError("Permiso de captura revocado por el sistema")
+            stopSelf()
         } catch (e: Exception) {
             Logger.e("ScreenCaptureService: Error en intento ${attempt + 1}", e)
+
             if (attempt < MAX_RETRY_ATTEMPTS - 1) {
+                // Backoff exponencial: 2s, 4s, 8s, 16s...
+                val delayMs = (RETRY_DELAY_MS * kotlin.math.pow(BACKOFF_MULTIPLIER, attempt.toDouble())).toLong()
+                Logger.i("ScreenCaptureService: Reintentando en ${delayMs}ms... (attempt ${attempt + 1}/$MAX_RETRY_ATTEMPTS)")
+
+                ServiceOrchestrator.transition(
+                    ServiceOrchestrator.SystemState.RECOVERING,
+                    "Capture retry attempt ${attempt + 1}/$MAX_RETRY_ATTEMPTS"
+                )
+
                 backgroundHandler?.postDelayed({
                     cleanup()
                     startCaptureWithRetry(resultCode, data, attempt + 1)
-                }, RETRY_DELAY_MS)
+                }, delayMs)
             } else {
                 Config.setCaptureActive(false)
+                ServiceOrchestrator.transition(
+                    ServiceOrchestrator.SystemState.FATAL_ERROR,
+                    "All capture retries exhausted"
+                )
+                ServiceOrchestrator.reportIssue(
+                    ServiceOrchestrator.Component.CAPTURE_SERVICE,
+                    ServiceOrchestrator.Issue.CRASHED,
+                    "Final error: ${e.message}"
+                )
                 reportError("Error de captura: ${e.message}")
                 stopSelf()
             }
