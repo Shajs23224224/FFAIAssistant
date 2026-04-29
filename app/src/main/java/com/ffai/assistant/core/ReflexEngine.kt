@@ -64,6 +64,17 @@ class ReflexEngine {
                 .copy(type = ActionType.SHOOT, confidence = features.enemyConfidence)
         }
 
+        if (features != null && features.recentDamageLikely && features.centerThreat > 0.45f && !state.isCrouching) {
+            return Action(ActionType.CROUCH, confidence = 0.78f)
+        }
+
+        if (features != null && features.enemyPresent && features.enemyPersistence > 0.65f &&
+            features.centerThreat > 0.55f && state.ammoRatio > 0.1f && now - lastShootTime > shootCooldownMs) {
+            lastShootTime = now
+            return Action.aim(features.enemyScreenX, features.enemyScreenY)
+                .copy(type = ActionType.SHOOT, confidence = (features.enemyConfidence + features.centerThreat).coerceIn(0f, 1f))
+        }
+
         // Enemigo presente (sin features visuales) → aim hacia él
         if (state.enemyPresent && state.ammoRatio > 0.1f && 
             now - lastShootTime > shootCooldownMs) {

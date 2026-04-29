@@ -9,6 +9,7 @@ import com.ffai.assistant.action.ActionType
 import com.ffai.assistant.action.GestureController
 import com.ffai.assistant.config.GameConfig
 import com.ffai.assistant.perception.GameState
+import com.ffai.assistant.perception.VisionProcessor
 import com.ffai.assistant.utils.Logger
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
@@ -30,6 +31,7 @@ import java.util.concurrent.atomic.AtomicLong
  *   - Action: <20ms
  */
 class GameLoop {
+    private val visionProcessor = VisionProcessor()
 
     // Threads dedicados
     private val captureThread = HandlerThread("FF-Capture", Thread.NORM_PRIORITY + 2)
@@ -68,6 +70,10 @@ class GameLoop {
 
     // Intervalo de inferencia (ms)
     var inferenceIntervalMs: Long = 66L  // ~15Hz
+    var strategyIntervalMs: Long = 2000L
+
+    @Volatile
+    private var lastStrategyUpdateMs: Long = 0L
 
     // Último estado del juego (compartido entre threads, volatile)
     @Volatile
@@ -224,9 +230,12 @@ class GameLoop {
 
             // 2. Extraer features rápidos para reflejos
             val quickFeatures = preprocessor?.extractQuickFeatures(bitmap)
+            val visionState = visionProcessor.analyze(bitmap)
+            currentGameState = synthesizeGameState(visionState, currentGameState, quickFeatures)
 
             // 3. Decidir acción (Reflejos primero → Táctico después)
             val decisionStart = System.currentTimeMillis()
+            maybeUpdateStrategy(decisionStart)
             val action = decisionEngine?.decide(currentGameState, quickFeatures, inputBuffer)
             inferenceLatency.set(System.currentTimeMillis() - decisionStart)
 
@@ -297,6 +306,61 @@ class GameLoop {
         } catch (e: Exception) {
             Logger.e("GameLoop: Error executing action", e)
         }
+    }
+
+    private fun maybeUpdateStrategy(nowMs: Long) {
+        if (nowMs - lastStrategyUpdateMs < strategyIntervalMs) return
+        try {
+            decisionEngine?.updateStrategy()
+            lastStrategyUpdateMs = nowMs
+        } catch (e: Exception) {
+            Logger.e("GameLoop: Error updating strategy", e)
+        }
+    }
+
+    private fun synthesizeGameState(
+        visionState: GameState,
+        previous: GameState,
+        features: QuickVisualFeatures?
+    ): GameState {
+        if (features == null) return visionState
+
+        val enemyXNorm = if (features.enemyPresent) {
+            (((features.enemyScreenX / 1080f) * 2f) - 1f).coerceIn(-1f, 1f)
+        } else visionState.enemyX
+
+        val enemyYNorm = if (features.enemyPresent) {
+            (((features.enemyScreenY / 2400f) * 2f) - 1f).coerceIn(-1f, 1f)
+        } else visionState.enemyY
+
+        val estimatedEnemyDistance = if (features.enemyPresent) {
+            (1f - features.centerThreat.coerceIn(0f, 1f)).coerceIn(0.05f, 1f)
+        } else {
+            (visionState.enemyDistance + 0.05f).coerceAtMost(1f)
+        }
+
+        val smoothedHealth = (visionState.healthRatio * 0.55f + previous.healthRatio * 0.15f + features.healthRatio * 0.30f)
+            .coerceIn(0f, 1f)
+        val smoothedAmmo = (visionState.ammoRatio * 0.55f + previous.ammoRatio * 0.10f + features.ammoRatio * 0.35f)
+            .coerceIn(0f, 1f)
+
+        return visionState.copy(
+            healthRatio = smoothedHealth,
+            ammoRatio = smoothedAmmo,
+            enemyPresent = visionState.enemyPresent || features.enemyPresent || features.enemyPersistence > 0.45f,
+            enemyX = enemyXNorm,
+            enemyY = enemyYNorm,
+            enemyDistance = estimatedEnemyDistance,
+            enemyCount = maxOf(visionState.enemyCount, if (features.enemyPresent || features.enemyPersistence > 0.55f) 1 else 0),
+            shootCooldown = if (features.isFiring) 0.85f else 0f,
+            isAiming = visionState.isAiming || features.centerThreat > 0.35f || previous.isAiming,
+            isInSafeZone = visionState.isInSafeZone && features.safeZoneIndicator > 0.20f,
+            hasHealItems = visionState.hasHealItems || previous.hasHealItems,
+            safeZoneShrinking = visionState.safeZoneShrinking || features.safeZoneIndicator < 0.25f,
+            distanceToSafeZone = (1f - features.safeZoneIndicator).coerceIn(0f, 1f),
+            damageTaken = if (features.recentDamageLikely) previous.damageTaken + 8f else previous.damageTaken * 0.94f,
+            timestamp = System.currentTimeMillis()
+        )
     }
 
     // ============================================

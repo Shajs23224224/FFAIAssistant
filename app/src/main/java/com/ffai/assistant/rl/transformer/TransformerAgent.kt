@@ -44,6 +44,7 @@ class TransformerAgent(private val context: Context) {
     
     private var transformerNet: Interpreter? = null
     private var isInitialized = false
+    private var lastSmoothedPolicy = FloatArray(NUM_ACTIONS) { 1f / NUM_ACTIONS }
     
     // State sequence buffer
     private val stateSequence = ArrayDeque<FloatArray>(SEQUENCE_LENGTH)
@@ -79,11 +80,11 @@ class TransformerAgent(private val context: Context) {
         val result = runInference(sequenceInput)
         
         // Extraer acción y valor
-        val actionProbs = result.sliceArray(0 until NUM_ACTIONS)
+        val actionProbs = smoothPolicy(result.sliceArray(0 until NUM_ACTIONS))
         val value = result[NUM_ACTIONS]
         
         // Samplear acción
-        val action = sampleAction(actionProbs)
+        val action = selectStableAction(actionProbs)
         val confidence = actionProbs.getOrElse(action) { 0.5f }
         
         return TransformerAction(
@@ -210,7 +211,7 @@ class TransformerAgent(private val context: Context) {
     // ============================================
     
     private fun updateSequence(state: FloatArray) {
-        stateSequence.addLast(state.copyOf())
+        stateSequence.addLast(projectState(state))
         if (stateSequence.size > SEQUENCE_LENGTH) {
             stateSequence.removeFirst()
         }
@@ -223,6 +224,26 @@ class TransformerAgent(private val context: Context) {
         }
         
         return stateSequence.toList().toTypedArray()
+    }
+
+    private fun projectState(state: FloatArray): FloatArray {
+        if (state.size == STATE_DIM) return state.copyOf()
+
+        val projected = FloatArray(STATE_DIM) { 0f }
+        val chunkSize = kotlin.math.ceil(STATE_DIM / state.size.toFloat()).toInt().coerceAtLeast(1)
+        for (i in projected.indices) {
+            val sourceIdx = (i / chunkSize).coerceAtMost(state.size - 1)
+            projected[i] = state[sourceIdx]
+        }
+
+        // Resumen global extra para robustez temporal
+        val avg = if (state.isNotEmpty()) state.average().toFloat() else 0f
+        val max = state.maxOrNull() ?: 0f
+        val min = state.minOrNull() ?: 0f
+        projected[STATE_DIM - 3] = avg
+        projected[STATE_DIM - 2] = max
+        projected[STATE_DIM - 1] = min
+        return projected
     }
     
     private fun runInference(sequence: Array<FloatArray>): FloatArray {
@@ -252,6 +273,37 @@ class TransformerAgent(private val context: Context) {
         }
         
         return probs.indices.maxByOrNull { probs[it] } ?: 0
+    }
+
+    private fun selectStableAction(probs: FloatArray): Int {
+        val bestIdx = probs.indices.maxByOrNull { probs[it] } ?: 0
+        val bestProb = probs[bestIdx]
+        return if (bestProb >= 0.58f) bestIdx else sampleAction(probs)
+    }
+
+    private fun smoothPolicy(current: FloatArray): FloatArray {
+        val normalized = normalize(current)
+        val smoothed = FloatArray(NUM_ACTIONS)
+        var total = 0f
+        for (i in 0 until NUM_ACTIONS) {
+            smoothed[i] = normalized[i] * 0.7f + lastSmoothedPolicy[i] * 0.3f
+            total += smoothed[i]
+        }
+        if (total > 0f) {
+            for (i in smoothed.indices) smoothed[i] /= total
+        }
+        lastSmoothedPolicy = smoothed.copyOf()
+        return smoothed
+    }
+
+    private fun normalize(values: FloatArray): FloatArray {
+        val positives = values.map { it.coerceAtLeast(0f) }.toFloatArray()
+        val sum = positives.sum()
+        return if (sum > 0f) {
+            FloatArray(positives.size) { idx -> positives[idx] / sum }
+        } else {
+            FloatArray(values.size) { 1f / values.size }
+        }
     }
     
     private fun loadModel(name: String): Interpreter? = try {

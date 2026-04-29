@@ -1,5 +1,6 @@
 package com.ffai.assistant
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -10,6 +11,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import com.ffai.assistant.utils.Config
 import com.ffai.assistant.utils.Logger
 
 /**
@@ -29,6 +31,7 @@ class KeepAliveService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        Config.init(applicationContext)
         Logger.i("KeepAliveService creado")
     }
 
@@ -45,6 +48,17 @@ class KeepAliveService : Service() {
         super.onDestroy()
         isRunning = false
         Logger.i("KeepAliveService destruido")
+        if (Config.isKeepAliveEnabled()) {
+            scheduleRestart()
+        }
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        Logger.w("KeepAliveService removido de recientes; reprogramando servicio")
+        if (Config.isKeepAliveEnabled()) {
+            scheduleRestart()
+        }
     }
 
     private fun startForegroundService() {
@@ -91,6 +105,27 @@ class KeepAliveService : Service() {
             
             val notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager.createNotificationChannel(channel)
+        }
+    }
+
+    private fun scheduleRestart() {
+        try {
+            val restartIntent = Intent(this, KeepAliveService::class.java)
+            val pendingIntent = PendingIntent.getService(
+                this,
+                2001,
+                restartIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val alarmManager = getSystemService(AlarmManager::class.java)
+            val triggerAtMillis = System.currentTimeMillis() + 1500L
+            alarmManager?.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                triggerAtMillis,
+                pendingIntent
+            )
+        } catch (e: Exception) {
+            Logger.e("KeepAliveService: error programando reinicio", e)
         }
     }
 }

@@ -21,13 +21,19 @@ data class QuickVisualFeatures(
     val enemyScreenX: Int = 0,
     val enemyScreenY: Int = 0,
     val enemyConfidence: Float = 0f,
+    val enemyPersistence: Float = 0f,
+    val enemyVelocityX: Float = 0f,
+    val enemyVelocityY: Float = 0f,
+    val centerThreat: Float = 0f,
+    val recentDamageLikely: Boolean = false,
 
     // Zona segura
     val safeZoneIndicator: Float = 1.0f,  // 1.0 = seguro, <1.0 = peligro
 
     // Estado de acción (si está disparando, curando, etc)
     val isFiring: Boolean = false,
-    val isHealing: Boolean = false
+    val isHealing: Boolean = false,
+    val combatIntensity: Float = 0f
 ) {
     companion object {
         val DEFAULT = QuickVisualFeatures()

@@ -70,14 +70,16 @@ class PerceptionEngine(
 
         val output = try {
             if (perceptionModel?.isAvailable() == true) {
-                // Usar CNN model
                 modelCalls++
-                perceptionModel?.analyze(bitmap) ?: run {
-                    fallbackCalls++
-                    analyzeWithFallback(bitmap)
+                val modelOutput = perceptionModel?.analyze(bitmap)
+                fallbackCalls++
+                val fallbackOutput = analyzeWithFallback(bitmap)
+                if (modelOutput != null) {
+                    fuseOutputs(modelOutput, fallbackOutput)
+                } else {
+                    fallbackOutput
                 }
             } else {
-                // Usar legacy
                 fallbackCalls++
                 analyzeWithFallback(bitmap)
             }
@@ -109,7 +111,9 @@ class PerceptionEngine(
      * Útil para reflejos cuando el CNN es lento o no disponible.
      */
     fun analyzeQuick(bitmap: Bitmap): PerceptionOutput {
-        return analyzeWithFallback(bitmap)
+        val fallback = analyzeWithFallback(bitmap)
+        val modelQuick = if (perceptionModel?.isAvailable() == true) perceptionModel?.analyzeQuick(bitmap) else null
+        return if (modelQuick != null) fuseOutputs(modelQuick, fallback) else fallback
     }
 
     private fun analyzeWithFallback(bitmap: Bitmap): PerceptionOutput {
@@ -148,6 +152,55 @@ class PerceptionEngine(
             hud = hud,
             buttons = emptyList()  // Legacy no detecta botones
         )
+    }
+
+    private fun fuseOutputs(model: PerceptionOutput, fallback: PerceptionOutput): PerceptionOutput {
+        val fusedEnemies = fuseEnemies(model.enemies, fallback.enemies)
+        val fusedHud = HUDState(
+            health = blend(model.hud.health, fallback.hud.health, 0.7f),
+            ammo = blend(model.hud.ammo, fallback.hud.ammo, 0.65f),
+            coins = if (model.hud.coins > 0) model.hud.coins else fallback.hud.coins,
+            armor = blend(model.hud.armor, fallback.hud.armor, 0.7f),
+            hasHelmet = model.hud.hasHelmet || fallback.hud.hasHelmet,
+            hasArmor = model.hud.hasArmor || fallback.hud.hasArmor
+        )
+        val fusedButtons = if (model.buttons.isNotEmpty()) model.buttons else fallback.buttons
+        return PerceptionOutput(
+            enemies = fusedEnemies,
+            hud = fusedHud,
+            buttons = fusedButtons,
+            processingTimeMs = maxOf(model.processingTimeMs, fallback.processingTimeMs)
+        )
+    }
+
+    private fun fuseEnemies(primary: EnemyHeatmap, secondary: EnemyHeatmap): EnemyHeatmap {
+        val fusedGrid = FloatArray(primary.grid.size) { idx ->
+            val primaryVal = primary.grid.getOrElse(idx) { 0f }
+            val secondaryVal = secondary.grid.getOrElse(idx) { 0f }
+            blend(primaryVal, secondaryVal, 0.75f).coerceIn(0f, 1f)
+        }
+
+        val mergedCentroids = (primary.centroids + secondary.centroids)
+            .sortedByDescending { it.confidence }
+            .fold(mutableListOf<EnemyCentroid>()) { acc, centroid ->
+                val duplicate = acc.any {
+                    kotlin.math.abs(it.screenX - centroid.screenX) < 90f &&
+                    kotlin.math.abs(it.screenY - centroid.screenY) < 90f
+                }
+                if (!duplicate) acc.add(centroid)
+                acc
+            }
+
+        return EnemyHeatmap(
+            grid = fusedGrid,
+            centroids = mergedCentroids.take(4),
+            width = primary.width,
+            height = primary.height
+        )
+    }
+
+    private fun blend(primary: Float, secondary: Float, primaryWeight: Float): Float {
+        return primary * primaryWeight + secondary * (1f - primaryWeight)
     }
 
     /**

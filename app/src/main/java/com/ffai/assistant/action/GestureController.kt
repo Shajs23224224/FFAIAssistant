@@ -34,7 +34,10 @@ class GestureController(
     fun execute(action: Action) {
         try {
             val now = System.currentTimeMillis()
-            if (!isAccessibilityServiceEnabled()) return
+            if (!isAccessibilityServiceEnabled()) {
+                Logger.w("GestureController: AccessibilityService no utilizable para ${action.type}")
+                return
+            }
             if (now - lastActionTime < Constants.ACTION_COOLDOWN_MS) return
             lastActionTime = now
 
@@ -65,7 +68,10 @@ class GestureController(
      */
     fun executeCommand(command: GestureCommand) {
         try {
-            if (!isAccessibilityServiceEnabled()) return
+            if (!isAccessibilityServiceEnabled()) {
+                Logger.w("GestureController: AccessibilityService no utilizable para comando ${command.type}")
+                return
+            }
             when (command.type) {
                 GestureType.TAP, GestureType.SINGLE_TAP -> { val p = command.pointers.firstOrNull() ?: return; tap(p.currentX, p.currentY, command.durationMs) }
                 GestureType.HOLD -> { val p = command.pointers.firstOrNull() ?: return; hold(p.currentX, p.currentY, command.durationMs) }
@@ -274,7 +280,19 @@ class GestureController(
 
     private fun dispatchGestureSafe(gesture: GestureDescription, label: String) {
         try {
-            val dispatched = service.dispatchGesture(gesture, null, null)
+            val dispatched = service.dispatchGesture(
+                gesture,
+                object : AccessibilityService.GestureResultCallback() {
+                    override fun onCompleted(gestureDescription: GestureDescription?) {
+                        Logger.d("GestureController: gesture completed for $label")
+                    }
+
+                    override fun onCancelled(gestureDescription: GestureDescription?) {
+                        Logger.w("GestureController: gesture cancelled for $label")
+                    }
+                },
+                null
+            )
             if (!dispatched) Logger.w("GestureController: dispatch failed for $label")
         } catch (e: Exception) {
             Logger.w("GestureController: dispatch error for $label", e)
@@ -291,6 +309,20 @@ class GestureController(
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
-        return try { service.rootInActiveWindow != null } catch (e: Exception) { false }
+        return try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+                false
+            } else {
+                val root = service.rootInActiveWindow
+                if (root == null) {
+                    // En juegos/fullscreen rootInActiveWindow puede ser null y dispatchGesture seguir funcionando.
+                    Logger.d("GestureController: rootInActiveWindow es null; continuando con dispatchGesture")
+                }
+                true
+            }
+        } catch (e: Exception) {
+            Logger.w("GestureController: no se pudo validar AccessibilityService", e)
+            false
+        }
     }
 }

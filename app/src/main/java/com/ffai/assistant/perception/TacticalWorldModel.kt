@@ -21,7 +21,7 @@ class TacticalWorldModel {
     // ============================================
     
     /** Posición actual en el mapa (coordenadas normalizadas 0-1) */
-    var playerPosition: Vector3D = Vector3D(0f, 0f, 0f)
+    var playerPosition: Vector3D = Vector3D(0.5f, 0.5f, 0f)
     
     /** Dirección de vista (ángulo en radianes) */
     var viewAngle: Float = 0f
@@ -192,6 +192,8 @@ class TacticalWorldModel {
         // Actualizar salud y estado
         playerHealth = gameState.healthRatio * 100f
         playerShield = if (gameState.hasArmor) 100f else 0f
+        isCrouching = gameState.isCrouching
+        isAiming = gameState.isAiming
         
         // Actualizar armas y munición
         currentWeapon = detectWeaponType(gameState)
@@ -208,6 +210,10 @@ class TacticalWorldModel {
         // Actualizar zona
         distanceToZoneEdge = gameState.distanceToSafeZone
         isInSafeZone = distanceToZoneEdge <= 0f
+        directionToZoneCenter = Vector2D(
+            safeZoneCenter.x - playerPosition.x,
+            safeZoneCenter.y - playerPosition.y
+        ).normalize()
         
         // Recalcular evaluaciones
         recalculateRiskAssessment()
@@ -423,7 +429,8 @@ class TacticalWorldModel {
      * Reset para nueva partida.
      */
     fun reset() {
-        playerPosition = Vector3D(0f, 0f, 0f)
+        playerPosition = Vector3D(0.5f, 0.5f, 0f)
+        directionToZoneCenter = Vector2D(0f, 0f)
         playerHealth = 100f
         playerShield = 0f
         visibleEnemies.clear()

@@ -38,6 +38,16 @@ class VisionProcessor {
         
         // 4. Detectar estado adicional
         val isInSafeZone = detectSafeZone(bitmap)
+        val safeZonePressure = detectSafeZonePressure(bitmap)
+        val isAiming = detectAiming(bitmap)
+        val isCrouching = detectCrouching(bitmap)
+        val hasArmor = detectArmor(bitmap)
+        val hasHelmet = detectHelmet(bitmap)
+        val lootNearby = detectLootNearby(bitmap)
+        val currentWeapon = detectWeaponType(bitmap)
+        val hasGoodWeapon = currentWeapon != WeaponType.PISTOL &&
+            currentWeapon != WeaponType.MELEE &&
+            currentWeapon != WeaponType.UNKNOWN
         
         // 5. Detectar si necesita curación
         val hasHealItems = detectHealItems(bitmap)
@@ -53,7 +63,17 @@ class VisionProcessor {
             enemyDistance = enemyDetection.distance,
             enemyCount = enemyDetection.count,
             isInSafeZone = isInSafeZone,
-            hasHealItems = hasHealItems
+            isCrouching = isCrouching,
+            isAiming = isAiming,
+            currentWeapon = currentWeapon,
+            lootNearby = lootNearby,
+            hasGoodWeapon = hasGoodWeapon,
+            hasArmor = hasArmor,
+            hasHelmet = hasHelmet,
+            hasHealItems = hasHealItems,
+            safeZoneShrinking = safeZonePressure > 0.55f,
+            distanceToSafeZone = if (isInSafeZone) 0f else safeZonePressure.coerceIn(0.15f, 1f),
+            timestamp = currentTime
         )
     }
     
@@ -140,6 +160,7 @@ class VisionProcessor {
         }
         
         val present = enemyPixels > 5 && totalScore > 3f
+        val countEstimate = estimateEnemyClusters(enemyPixels, totalScore)
         
         return if (present) {
             val avgX = enemyX / totalScore
@@ -152,9 +173,17 @@ class VisionProcessor {
             // Distancia inversamente proporcional al tamaño del objeto detectado
             val distance = (1f - (enemyPixels / 50f).coerceIn(0f, 1f))
             
-            EnemyDetection(true, normalizedX, normalizedY, distance, 1)
+            EnemyDetection(true, normalizedX, normalizedY, distance, countEstimate)
         } else {
             EnemyDetection(false, 0f, 0f, 1f, 0)
+        }
+    }
+
+    private fun estimateEnemyClusters(enemyPixels: Int, totalScore: Float): Int {
+        return when {
+            enemyPixels > 26 || totalScore > 13f -> 3
+            enemyPixels > 14 || totalScore > 7f -> 2
+            else -> 1
         }
     }
     
@@ -225,6 +254,101 @@ class VisionProcessor {
         }
         
         return false
+    }
+
+    private fun detectSafeZonePressure(bitmap: Bitmap): Float {
+        val edgeBlue = sampleBlue(bitmap, 0.86f, 0.10f, 0.98f, 0.22f)
+        val edgeRed = sampleRed(bitmap, 0.02f, 0.10f, 0.16f, 0.22f)
+        return ((edgeBlue + edgeRed) * 0.5f).coerceIn(0f, 1f)
+    }
+
+    private fun detectAiming(bitmap: Bitmap): Boolean {
+        return sampleBrightness(bitmap, 0.46f, 0.42f, 0.54f, 0.58f) > 0.68f
+    }
+
+    private fun detectCrouching(bitmap: Bitmap): Boolean {
+        return sampleBrightness(bitmap, 0.72f, 0.78f, 0.84f, 0.90f) > 0.70f
+    }
+
+    private fun detectArmor(bitmap: Bitmap): Boolean {
+        return sampleBlue(bitmap, 0.03f, 0.83f, 0.12f, 0.90f) > 0.45f
+    }
+
+    private fun detectHelmet(bitmap: Bitmap): Boolean {
+        return sampleBlue(bitmap, 0.12f, 0.83f, 0.21f, 0.90f) > 0.40f
+    }
+
+    private fun detectLootNearby(bitmap: Bitmap): Boolean {
+        val lootBrightness = sampleBrightness(bitmap, 0.35f, 0.60f, 0.65f, 0.82f)
+        val lootRed = sampleRed(bitmap, 0.35f, 0.60f, 0.65f, 0.82f)
+        return lootBrightness > 0.62f || lootRed > 0.56f
+    }
+
+    private fun detectWeaponType(bitmap: Bitmap): WeaponType {
+        val ammoPanelBrightness = sampleBrightness(bitmap, 0.73f, 0.84f, 0.98f, 0.96f)
+        val centralContrast = sampleContrast(bitmap, 0.70f, 0.78f, 0.98f, 0.96f)
+        return when {
+            ammoPanelBrightness > 0.82f && centralContrast < 0.18f -> WeaponType.SNIPER
+            ammoPanelBrightness < 0.48f -> WeaponType.SHOTGUN
+            centralContrast > 0.32f -> WeaponType.SMG
+            ammoPanelBrightness > 0.68f -> WeaponType.ASSAULT_RIFLE
+            else -> WeaponType.UNKNOWN
+        }
+    }
+
+    private fun sampleBrightness(bitmap: Bitmap, left: Float, top: Float, right: Float, bottom: Float): Float {
+        return sampleRegion(bitmap, left, top, right, bottom) { r, g, b ->
+            (r + g + b) / (3f * 255f)
+        }
+    }
+
+    private fun sampleRed(bitmap: Bitmap, left: Float, top: Float, right: Float, bottom: Float): Float {
+        return sampleRegion(bitmap, left, top, right, bottom) { r, _, _ -> r / 255f }
+    }
+
+    private fun sampleBlue(bitmap: Bitmap, left: Float, top: Float, right: Float, bottom: Float): Float {
+        return sampleRegion(bitmap, left, top, right, bottom) { _, _, b -> b / 255f }
+    }
+
+    private fun sampleContrast(bitmap: Bitmap, left: Float, top: Float, right: Float, bottom: Float): Float {
+        var minValue = 1f
+        var maxValue = 0f
+        sampleRegion(bitmap, left, top, right, bottom) { r, g, b ->
+            val value = (r + g + b) / (3f * 255f)
+            if (value < minValue) minValue = value
+            if (value > maxValue) maxValue = value
+            value
+        }
+        return (maxValue - minValue).coerceIn(0f, 1f)
+    }
+
+    private fun sampleRegion(
+        bitmap: Bitmap,
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        extractor: (Float, Float, Float) -> Float
+    ): Float {
+        val x0 = (bitmap.width * left).toInt().coerceIn(0, bitmap.width - 1)
+        val y0 = (bitmap.height * top).toInt().coerceIn(0, bitmap.height - 1)
+        val x1 = (bitmap.width * right).toInt().coerceIn(x0 + 1, bitmap.width)
+        val y1 = (bitmap.height * bottom).toInt().coerceIn(y0 + 1, bitmap.height)
+
+        var total = 0f
+        var count = 0
+        for (y in y0 until y1 step 10) {
+            for (x in x0 until x1 step 10) {
+                val pixel = bitmap.getPixel(x, y)
+                total += extractor(
+                    Color.red(pixel).toFloat(),
+                    Color.green(pixel).toFloat(),
+                    Color.blue(pixel).toFloat()
+                )
+                count++
+            }
+        }
+        return if (count > 0) total / count else 0f
     }
     
     private data class EnemyDetection(

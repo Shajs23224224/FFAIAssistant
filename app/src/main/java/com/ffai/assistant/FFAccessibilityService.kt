@@ -17,7 +17,11 @@ import com.ffai.assistant.core.*
 import com.ffai.assistant.core.AdvancedAICore
 import com.ffai.assistant.action.ActionType
 import com.ffai.assistant.learning.MemoryManager
+import com.ffai.assistant.memory.TacticalMemory
 import com.ffai.assistant.perception.PerceptionEngine
+import com.ffai.assistant.perception.RiskAssessor
+import com.ffai.assistant.perception.StateTracker
+import com.ffai.assistant.perception.TacticalWorldModel
 import com.ffai.assistant.utils.Logger
 import kotlinx.coroutines.*
 
@@ -47,6 +51,13 @@ class FFAccessibilityService : AccessibilityService() {
     // Decision
     private var reflexEngine: ReflexEngine? = null
     private var decisionEngine: DecisionEngine? = null
+    private var worldModel: TacticalWorldModel? = null
+    private var riskAssessor: RiskAssessor? = null
+    private var stateTracker: StateTracker? = null
+    private var fastTacticalEngine: FastTacticalEngine? = null
+    private var strategicEngine: StrategicEngine? = null
+    private var tacticalMemory: TacticalMemory? = null
+    private var decisionPerformanceMonitor: com.ffai.assistant.telemetry.PerformanceMonitor? = null
 
     // Action
     private var gestureController: GestureController? = null
@@ -223,7 +234,23 @@ class FFAccessibilityService : AccessibilityService() {
         reflexEngine = ReflexEngine()
         val policyModel = PolicyModel(this@FFAccessibilityService)  // Puede fallar si no existe
         val tacticalEngine = TacticalEngine(policyModel)
-        decisionEngine = DecisionEngine(reflexEngine!!, tacticalEngine, aimController!!)
+        worldModel = TacticalWorldModel()
+        riskAssessor = RiskAssessor(worldModel!!)
+        stateTracker = StateTracker(worldModel!!)
+        fastTacticalEngine = FastTacticalEngine(worldModel!!, riskAssessor!!)
+        strategicEngine = StrategicEngine(worldModel!!, stateTracker!!, riskAssessor!!)
+        tacticalMemory = TacticalMemory()
+        decisionPerformanceMonitor = com.ffai.assistant.telemetry.PerformanceMonitor(serviceScope)
+        decisionEngine = DecisionEngine(
+            reflexEngine = reflexEngine!!,
+            tacticalEngine = tacticalEngine,
+            aimController = aimController!!,
+            fastTacticalEngine = fastTacticalEngine,
+            strategicEngine = strategicEngine,
+            worldModel = worldModel,
+            tacticalMemory = tacticalMemory,
+            performanceMonitor = decisionPerformanceMonitor
+        )
 
         // 6. Memory
         memoryManager = MemoryManager(this@FFAccessibilityService, serviceScope)

@@ -28,6 +28,7 @@ import androidx.core.app.NotificationCompat
 import com.ffai.assistant.MainActivity
 import com.ffai.assistant.R
 import com.ffai.assistant.config.Constants
+import com.ffai.assistant.utils.Config
 import com.ffai.assistant.utils.Logger
 import kotlinx.coroutines.*
 import java.nio.ByteBuffer
@@ -85,6 +86,7 @@ class ScreenCaptureService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        Config.init(applicationContext)
         Logger.i("ScreenCaptureService creado")
         instance = this
         
@@ -109,6 +111,7 @@ class ScreenCaptureService : Service() {
                 // Validación estricta según las 10 reglas de arquitectura
                 if (resultCode != Activity.RESULT_OK) {
                     Logger.e("ScreenCaptureService: resultCode inválido ($resultCode), se requiere RESULT_OK")
+                    Config.setCaptureActive(false)
                     reportError("Permiso de captura denegado por el usuario")
                     stopSelf()
                     return START_NOT_STICKY
@@ -116,16 +119,19 @@ class ScreenCaptureService : Service() {
                 
                 if (data == null) {
                     Logger.e("ScreenCaptureService: Intent data es null")
+                    Config.setCaptureActive(false)
                     reportError("Datos de autorización no disponibles")
                     stopSelf()
                     return START_NOT_STICKY
                 }
                 
                 try {
+                    Config.setAiStartRequested(true)
                     startForegroundService()
                     startCaptureWithRetry(resultCode, data, 0)
                 } catch (e: Exception) {
                     Logger.e("ScreenCaptureService: Error fatal iniciando captura", e)
+                    Config.setCaptureActive(false)
                     reportError("Error iniciando servicio: ${e.message}")
                     cleanup()
                     stopSelf()
@@ -133,6 +139,8 @@ class ScreenCaptureService : Service() {
                 }
             }
             ACTION_STOP_CAPTURE -> {
+                Config.setAiStartRequested(false)
+                Config.setCaptureActive(false)
                 stopCapture()
                 stopSelf()
             }
@@ -206,6 +214,7 @@ class ScreenCaptureService : Service() {
     private fun startCaptureWithRetry(resultCode: Int, data: Intent, attempt: Int) {
         if (attempt >= MAX_RETRY_ATTEMPTS) {
             Logger.e("ScreenCaptureService: Máximo de reintentos ($MAX_RETRY_ATTEMPTS) alcanzado")
+            Config.setCaptureActive(false)
             reportError("No se pudo iniciar captura después de $MAX_RETRY_ATTEMPTS intentos")
             stopSelf()
             return
@@ -222,6 +231,7 @@ class ScreenCaptureService : Service() {
                     startCaptureWithRetry(resultCode, data, attempt + 1)
                 }, RETRY_DELAY_MS)
             } else {
+                Config.setCaptureActive(false)
                 reportError("Permiso de seguridad denegado: ${e.message}")
                 stopSelf()
             }
@@ -233,6 +243,7 @@ class ScreenCaptureService : Service() {
                     startCaptureWithRetry(resultCode, data, attempt + 1)
                 }, RETRY_DELAY_MS)
             } else {
+                Config.setCaptureActive(false)
                 reportError("Error de captura: ${e.message}")
                 stopSelf()
             }
@@ -271,6 +282,7 @@ class ScreenCaptureService : Service() {
                     override fun onStop() {
                         Logger.w("ScreenCaptureService: MediaProjection detenida por el sistema")
                         isCapturing.set(false)
+                        Config.setCaptureActive(false)
                         stopCapture()
                         stopSelf()
                     }
@@ -288,6 +300,7 @@ class ScreenCaptureService : Service() {
             createVirtualDisplay(screenWidth, screenHeight, density)
 
             isCapturing.set(true)
+            Config.setCaptureActive(true)
             lastFpsTime = System.currentTimeMillis()
             
             Logger.i("ScreenCaptureService: Captura iniciada correctamente")
@@ -297,10 +310,12 @@ class ScreenCaptureService : Service() {
 
         } catch (e: SecurityException) {
             Logger.e("ScreenCaptureService: SecurityException", e)
+            Config.setCaptureActive(false)
             cleanup()
             stopSelf()
         } catch (e: Exception) {
             Logger.e("ScreenCaptureService: Error iniciando captura", e)
+            Config.setCaptureActive(false)
             cleanup()
             stopSelf()
         }
@@ -465,6 +480,7 @@ class ScreenCaptureService : Service() {
         
         Logger.i("ScreenCaptureService: Deteniendo captura...")
         isCapturing.set(false)
+        Config.setCaptureActive(false)
         cleanup()
         isRunning = false
         
@@ -491,6 +507,9 @@ class ScreenCaptureService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         Logger.i("ScreenCaptureService: onDestroy")
+        if (isCapturing.get()) {
+            Config.setCaptureActive(false)
+        }
         stopCapture()
         backgroundThread?.quitSafely()
         backgroundThread = null

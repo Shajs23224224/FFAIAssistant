@@ -30,6 +30,13 @@ class Preprocessor(
 
     // Buffer para pixels intermedio
     private val pixelBuffer: IntArray = IntArray(targetWidth * targetHeight)
+    private var lastEnemySeenTimeMs: Long = 0L
+    private var lastEnemyX: Int = 0
+    private var lastEnemyY: Int = 0
+    private var consecutiveEnemyFrames: Int = 0
+    private var lastHealthRatio: Float = 1.0f
+    private var lastAmmoRatio: Float = 1.0f
+    private var lastFeatureTimeMs: Long = 0L
 
     companion object {
         const val TARGET_WIDTH = 160
@@ -94,6 +101,7 @@ class Preprocessor(
      * @return QuickVisualFeatures con datos del HUD y detección básica
      */
     fun extractQuickFeatures(bitmap: Bitmap): QuickVisualFeatures {
+        val now = System.currentTimeMillis()
         val w = bitmap.width
         val h = bitmap.height
 
@@ -111,8 +119,58 @@ class Preprocessor(
             ColorChannel.BRIGHTNESS
         )
 
+        val safeZoneIndicator = sampleRegionAvg(
+            bitmap,
+            (w * 0.40).toInt(), (h * 0.03).toInt(),
+            (w * 0.60).toInt(), (h * 0.08).toInt(),
+            ColorChannel.BRIGHTNESS
+        )
+
         // Detección enemigo: región central (sampling sparse)
         val enemyResult = detectEnemySparse(bitmap)
+        val isFiring = detectFiringState(bitmap)
+        val isHealing = detectHealingState(bitmap)
+
+        val dtMs = (now - lastFeatureTimeMs).coerceAtLeast(1L)
+        val recentDamageLikely = healthRatio + 0.08f < lastHealthRatio
+        val enemyPersistence = if (enemyResult.present) {
+            consecutiveEnemyFrames = (consecutiveEnemyFrames + 1).coerceAtMost(30)
+            lastEnemySeenTimeMs = now
+            (consecutiveEnemyFrames / 8f).coerceIn(0f, 1f)
+        } else {
+            consecutiveEnemyFrames = 0
+            ((2500L - (now - lastEnemySeenTimeMs)).coerceAtLeast(0L) / 2500f).coerceIn(0f, 1f)
+        }
+
+        val enemyVelocityX = if (enemyResult.present) {
+            (enemyResult.screenX - lastEnemyX).toFloat() / dtMs.toFloat()
+        } else 0f
+        val enemyVelocityY = if (enemyResult.present) {
+            (enemyResult.screenY - lastEnemyY).toFloat() / dtMs.toFloat()
+        } else 0f
+
+        val centerThreat = if (enemyResult.present) {
+            val dx = enemyResult.screenX - (w / 2)
+            val dy = enemyResult.screenY - (h / 2)
+            val distance = kotlin.math.hypot(dx.toFloat(), dy.toFloat())
+            (1f - (distance / (w.coerceAtLeast(h) * 0.35f)).coerceIn(0f, 1f)) * enemyResult.confidence
+        } else 0f
+
+        val ammoDrop = (lastAmmoRatio - ammoRatio).coerceAtLeast(0f)
+        val combatIntensity = (
+            centerThreat * 0.45f +
+            enemyPersistence * 0.25f +
+            (if (isFiring) 0.2f else 0f) +
+            ammoDrop.coerceIn(0f, 0.2f)
+        ).coerceIn(0f, 1f)
+
+        if (enemyResult.present) {
+            lastEnemyX = enemyResult.screenX
+            lastEnemyY = enemyResult.screenY
+        }
+        lastHealthRatio = healthRatio
+        lastAmmoRatio = ammoRatio
+        lastFeatureTimeMs = now
 
         return QuickVisualFeatures(
             healthRatio = healthRatio,
@@ -120,8 +178,37 @@ class Preprocessor(
             enemyPresent = enemyResult.present,
             enemyScreenX = enemyResult.screenX,
             enemyScreenY = enemyResult.screenY,
-            enemyConfidence = enemyResult.confidence
+            enemyConfidence = enemyResult.confidence,
+            enemyPersistence = enemyPersistence,
+            enemyVelocityX = enemyVelocityX.coerceIn(-2f, 2f),
+            enemyVelocityY = enemyVelocityY.coerceIn(-2f, 2f),
+            centerThreat = centerThreat,
+            recentDamageLikely = recentDamageLikely,
+            safeZoneIndicator = safeZoneIndicator,
+            isFiring = isFiring,
+            isHealing = isHealing,
+            combatIntensity = combatIntensity
         )
+    }
+
+    private fun detectFiringState(bitmap: Bitmap): Boolean {
+        val brightness = sampleRegionAvg(
+            bitmap,
+            (bitmap.width * 0.72).toInt(), (bitmap.height * 0.70).toInt(),
+            (bitmap.width * 0.98).toInt(), (bitmap.height * 0.95).toInt(),
+            ColorChannel.BRIGHTNESS
+        )
+        return brightness > 0.72f
+    }
+
+    private fun detectHealingState(bitmap: Bitmap): Boolean {
+        val greenLevel = sampleRegionAvg(
+            bitmap,
+            (bitmap.width * 0.35).toInt(), (bitmap.height * 0.70).toInt(),
+            (bitmap.width * 0.65).toInt(), (bitmap.height * 0.90).toInt(),
+            ColorChannel.GREEN
+        )
+        return greenLevel > 0.62f
     }
 
     private fun cropROI(bitmap: Bitmap, roi: Rect): Bitmap {

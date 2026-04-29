@@ -29,6 +29,8 @@ class PolicyModel(context: Context) {
     // Buffers reutilizables (evitar GC durante inferencia)
     private val inputBuffer = Array(1) { FloatArray(32) }
     private val outputBuffer = Array(1) { FloatArray(19) }
+    private var lastSmoothedActionProbs = FloatArray(15) { 1f / 15f }
+    private var lastInferenceTimestamp = 0L
 
     var isLoaded: Boolean = false
         private set
@@ -89,7 +91,7 @@ class PolicyModel(context: Context) {
 
             // Aplicar softmax a las 15 primeras salidas (probabilidades de acción)
             val actionProbs = outputBuffer[0].take(15).toFloatArray()
-            val softmaxProbs = softmax(actionProbs)
+            val softmaxProbs = smoothProbabilities(softmax(actionProbs, temperature = dynamicTemperature(features)))
 
             // Combinar con parámetros
             val result = FloatArray(19)
@@ -177,6 +179,7 @@ class PolicyModel(context: Context) {
         interpreter?.close()
         interpreter = null
         isLoaded = false
+        lastSmoothedActionProbs = FloatArray(15) { 1f / 15f }
     }
 
     private fun loadModelFile(modelFile: File): MappedByteBuffer {
@@ -186,10 +189,45 @@ class PolicyModel(context: Context) {
         }
     }
 
-    private fun softmax(input: FloatArray): FloatArray {
-        val exp = input.map { kotlin.math.exp(it) }
+    private fun softmax(input: FloatArray, temperature: Float = 1.0f): FloatArray {
+        val safeTemperature = temperature.coerceIn(0.65f, 1.75f)
+        val maxLogit = input.maxOrNull() ?: 0f
+        val exp = input.map { kotlin.math.exp((it - maxLogit) / safeTemperature) }
         val sum = exp.sum()
         return if (sum > 0) exp.map { it / sum }.toFloatArray() else FloatArray(input.size) { 1f / input.size }
+    }
+
+    private fun smoothProbabilities(current: FloatArray): FloatArray {
+        val now = System.currentTimeMillis()
+        val deltaMs = if (lastInferenceTimestamp == 0L) 0L else now - lastInferenceTimestamp
+        lastInferenceTimestamp = now
+
+        val alpha = if (deltaMs in 1..120) 0.65f else 0.85f
+        val smoothed = FloatArray(current.size)
+        var total = 0f
+        for (i in current.indices) {
+            smoothed[i] = alpha * current[i] + (1f - alpha) * lastSmoothedActionProbs[i]
+            total += smoothed[i]
+        }
+        if (total > 0f) {
+            for (i in smoothed.indices) {
+                smoothed[i] /= total
+            }
+        }
+        lastSmoothedActionProbs = smoothed.copyOf()
+        return smoothed
+    }
+
+    private fun dynamicTemperature(features: FloatArray): Float {
+        val health = features.getOrElse(0) { 1f }
+        val enemyPresent = features.getOrElse(2) { 0f }
+        val enemyDistance = features.getOrElse(5) { 1f }
+        return when {
+            enemyPresent > 0.5f && health < 0.35f -> 0.78f
+            enemyPresent > 0.5f && enemyDistance < 0.25f -> 0.72f
+            enemyPresent < 0.5f -> 1.2f
+            else -> 0.95f
+        }
     }
 
     data class ModelInfo(

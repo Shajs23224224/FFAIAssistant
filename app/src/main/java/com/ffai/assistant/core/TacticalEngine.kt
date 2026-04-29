@@ -23,6 +23,7 @@ class TacticalEngine(
     // Historial de acciones (para evitar repetición excesiva)
     private val actionHistory = ArrayDeque<ActionType>(5)
     private val maxHistorySize = 5
+    private val temporalStateHistory = ArrayDeque<FloatArray>(4)
 
     // Cooldowns internos
     private var lastExploreTime: Long = 0L
@@ -168,23 +169,18 @@ class TacticalEngine(
         featureVector[21] = if (state.lootNearby) 1f else 0f
         featureVector[22] = if (state.hasGoodWeapon) 1f else 0f
 
-        // Historial de acciones codificado (23-27)
-        // One-hot encoding de últimas 5 acciones (solo las últimas 5 slots)
-        val recentActions = actionHistory.takeLast(5)
-        for ((i, action) in recentActions.withIndex()) {
-            val actionIdx = action.ordinal
-            if (23 + actionIdx < 32) {
-                featureVector[23 + actionIdx] = 1f
-            }
-        }
+        // Contexto temporal y visual extendido (23-31)
+        featureVector[23] = features?.enemyPersistence ?: if (state.enemyPresent) 1f else 0f
+        featureVector[24] = ((features?.enemyVelocityX ?: 0f).coerceIn(-1f, 1f) * 0.5f + 0.5f)
+        featureVector[25] = ((features?.enemyVelocityY ?: 0f).coerceIn(-1f, 1f) * 0.5f + 0.5f)
+        featureVector[26] = features?.centerThreat ?: 0f
+        featureVector[27] = if (features?.recentDamageLikely == true || state.damageTaken > 0f) 1f else 0f
+        featureVector[28] = features?.combatIntensity ?: if (state.enemyPresent) 0.5f else 0f
+        featureVector[29] = getTemporalEnemyPresenceAverage()
+        featureVector[30] = getTemporalHealthTrend(state.healthRatio)
+        featureVector[31] = 1f
 
-        // Ruido aleatorio suave para evitar determinismo (28-29)
-        featureVector[28] = kotlin.random.Random.nextFloat() * 0.1f
-        featureVector[29] = kotlin.random.Random.nextFloat() * 0.1f
-
-        // Bias/placeholder (30-31)
-        featureVector[30] = 1f  // Bias term
-        featureVector[31] = 0f  // Reservado
+        pushTemporalSnapshot(state, features)
 
         return featureVector
     }
@@ -248,8 +244,33 @@ class TacticalEngine(
 
     fun reset() {
         actionHistory.clear()
+        temporalStateHistory.clear()
         lastExploreTime = 0L
         lastLootTime = 0L
+    }
+
+    private fun pushTemporalSnapshot(state: GameState, features: QuickVisualFeatures?) {
+        temporalStateHistory.addLast(
+            floatArrayOf(
+                if (state.enemyPresent) 1f else 0f,
+                state.healthRatio,
+                state.ammoRatio,
+                features?.combatIntensity ?: 0f
+            )
+        )
+        if (temporalStateHistory.size > 4) {
+            temporalStateHistory.removeFirst()
+        }
+    }
+
+    private fun getTemporalEnemyPresenceAverage(): Float {
+        if (temporalStateHistory.isEmpty()) return 0f
+        return temporalStateHistory.map { it[0] }.average().toFloat().coerceIn(0f, 1f)
+    }
+
+    private fun getTemporalHealthTrend(currentHealth: Float): Float {
+        val previousHealth = temporalStateHistory.lastOrNull()?.getOrNull(1) ?: currentHealth
+        return ((currentHealth - previousHealth).coerceIn(-1f, 1f) * 0.5f + 0.5f).coerceIn(0f, 1f)
     }
 
     data class ActionParams(

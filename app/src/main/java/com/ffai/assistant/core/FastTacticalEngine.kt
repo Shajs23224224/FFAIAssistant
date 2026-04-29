@@ -8,7 +8,6 @@ import com.ffai.assistant.perception.ThreatLevel
 import com.ffai.assistant.perception.TacticalPriority
 import com.ffai.assistant.perception.Vector2D
 import com.ffai.assistant.perception.EnemyInfo
-import com.ffai.assistant.perception.CoverInfo
 import com.ffai.assistant.utils.Logger
 
 /**
@@ -48,6 +47,9 @@ class FastTacticalEngine(
         const val LOW_AMMO = 8
         const val HIGH_RISK_THRESHOLD = 70f
         const val CRITICAL_RISK_THRESHOLD = 85f
+        const val IDEAL_AIM_DISTANCE_PX = 160f
+        const val SCREEN_CENTER_X = 540f
+        const val SCREEN_CENTER_Y = 1200f
     }
     
     // Historial para evitar repetición
@@ -60,6 +62,7 @@ class FastTacticalEngine(
     private var lastReloadTime: Long = 0L
     private var lastJumpTime: Long = 0L
     private var lastCrouchTime: Long = 0L
+    private var strafeRightBias = true
     
     // Configuración de cooldowns
     private val LOOT_COOLDOWN_MS = 5000L
@@ -77,7 +80,9 @@ class FastTacticalEngine(
         val now = System.currentTimeMillis()
         
         // Evaluar situación actual (rápido, sin allocations)
-        val riskScore = quickRiskAssessment()
+        val riskScore = ((quickRiskAssessment() + riskAssessor.assessRisk().totalScore) * 0.5f)
+            .coerceIn(0f, 100f)
+        worldModel.riskScore = riskScore
         val priority = determinePriority(riskScore, now)
         
         // Seleccionar protocolo según prioridad
@@ -370,42 +375,32 @@ class FastTacticalEngine(
     // ============================================
     
     private fun shouldEngage(): Boolean {
-        // No pelear si:
-        // - Vida muy baja
-        // - Sin munición
-        // - Ratio muy desfavorable
-        // - Sin cobertura y enemigos tienen ventaja
-        
         if (worldModel.playerHealth < CRITICAL_HEALTH) return false
         if (worldModel.currentAmmo == 0 && worldModel.totalAmmo == 0) return false
-        if (worldModel.visibleEnemies.size > 2) return false // Outnumbered
+        if (worldModel.visibleEnemies.size > 2 && worldModel.currentPhase != com.ffai.assistant.perception.MatchPhase.ENDGAME) return false
         if (worldModel.isAtDisadvantage && worldModel.playerHealth < 50f) return false
+        if (worldModel.riskScore > HIGH_RISK_THRESHOLD && !worldModel.isInCover) return false
+        if (worldModel.currentAmmo < CRITICAL_AMMO && worldModel.visibleEnemies.size > 1) return false
         
         return true
     }
     
     private fun shouldShoot(target: EnemyInfo): Boolean {
-        // Disparar si:
-        // - Confianza en aim alta
-        // - Munición disponible
-        // - Distancia apropiada para arma
-        
         if (worldModel.currentAmmo <= 0) return false
         if (target.distanceEstimate > worldModel.currentWeapon.optimalRange * 1.5f) return false
-        if (target.threatLevel == ThreatLevel.CRITICAL) return true // Siempre disparar si amenaza crítica
-        
-        return true
+        if (target.threatLevel == ThreatLevel.CRITICAL) return true
+
+        val aimDistance = distanceFromCrosshair(target)
+        if (aimDistance > IDEAL_AIM_DISTANCE_PX) return false
+
+        return worldModel.playerHealth >= LOW_HEALTH || worldModel.isInCover
     }
     
     private fun shouldRepositionBeforeEngaging(): Boolean {
-        // Reposicionar si:
-        // - No hay cobertura
-        // - Posición comprometida
-        // - Ratio desfavorable
-        
         return worldModel.distanceToNearestCover > 0.25f ||
                worldModel.isCoverCompromised ||
-               (worldModel.visibleEnemies.size > 1 && worldModel.playerHealth < 60f)
+               (worldModel.visibleEnemies.size > 1 && worldModel.playerHealth < 60f) ||
+               (worldModel.riskScore > HIGH_RISK_THRESHOLD && !worldModel.isInCover)
     }
     
     private fun isSafeToHeal(now: Long): Boolean {
@@ -427,15 +422,8 @@ class FastTacticalEngine(
     }
     
     private fun selectBestTarget(): EnemyInfo? {
-        // Priorizar por:
-        // 1. Nivel de amenaza
-        // 2. Distancia (más cercano)
-        // 3. Salud estimada (baja = fácil kill)
-        
         return worldModel.visibleEnemies
-            .sortedWith(compareBy<EnemyInfo> { it.threatLevel.ordinal }
-                .thenBy { it.distanceEstimate })
-            .firstOrNull()
+            .maxByOrNull { scoreTarget(it) }
     }
     
     private fun calculateRetreatDirection(): Vector2D {
@@ -492,9 +480,13 @@ class FastTacticalEngine(
     }
     
     private fun moveToBetterPosition(target: EnemyInfo): Action {
-        // Mover perpendicular al enemigo para flanquear
         val enemyDir = calculateDirectionTo(target.position)
-        val perpendicular = Vector2D(-enemyDir.y, enemyDir.x) // Rotar 90°
+        val perpendicular = if (strafeRightBias) {
+            Vector2D(-enemyDir.y, enemyDir.x)
+        } else {
+            Vector2D(enemyDir.y, -enemyDir.x)
+        }
+        strafeRightBias = !strafeRightBias
         
         return moveTowards(perpendicular, confidence = 0.75f)
     }
@@ -522,13 +514,44 @@ class FastTacticalEngine(
     }
     
     private fun getAlternativeAction(original: Action, priority: TacticalPriority): Action {
-        // Si la acción es repetitiva, probar alternativa
         return when (original.type) {
             ActionType.ROTATE_LEFT -> Action(ActionType.ROTATE_RIGHT, confidence = original.confidence)
             ActionType.ROTATE_RIGHT -> Action(ActionType.ROTATE_LEFT, confidence = original.confidence)
-            ActionType.MOVE_FORWARD -> Action(ActionType.JUMP, confidence = 0.5f)
+            ActionType.MOVE_FORWARD -> if (worldModel.visibleEnemies.isNotEmpty()) {
+                Action(ActionType.MOVE_LEFT, confidence = 0.55f)
+            } else {
+                Action(ActionType.ROTATE_RIGHT, confidence = 0.4f)
+            }
+            ActionType.MOVE_BACKWARD -> moveToNearestCover(0.6f)
+            ActionType.MOVE_LEFT -> Action(ActionType.MOVE_RIGHT, confidence = original.confidence)
+            ActionType.MOVE_RIGHT -> Action(ActionType.MOVE_LEFT, confidence = original.confidence)
+            ActionType.CROUCH -> if (priority == TacticalPriority.ENGAGE) {
+                Action(ActionType.JUMP, confidence = 0.45f)
+            } else {
+                Action.hold()
+            }
             else -> Action.hold()
         }
+    }
+
+    private fun scoreTarget(target: EnemyInfo): Float {
+        val threatScore = when (target.threatLevel) {
+            ThreatLevel.CRITICAL -> 120f
+            ThreatLevel.HIGH -> 90f
+            ThreatLevel.MEDIUM -> 60f
+            ThreatLevel.LOW -> 30f
+            ThreatLevel.NONE -> 10f
+        }
+        val distanceScore = (1f - target.distanceEstimate.coerceIn(0f, 1f)) * 45f
+        val centerScore = (1f - (distanceFromCrosshair(target) / 1400f).coerceIn(0f, 1f)) * 35f
+        val finisherScore = (1f - (target.healthEstimate / 100f).coerceIn(0f, 1f)) * 20f
+        return threatScore + distanceScore + centerScore + finisherScore
+    }
+
+    private fun distanceFromCrosshair(target: EnemyInfo): Float {
+        val dx = target.screenX - SCREEN_CENTER_X
+        val dy = target.screenY - SCREEN_CENTER_Y
+        return kotlin.math.hypot(dx, dy)
     }
     
     private fun recordAction(actionType: ActionType) {

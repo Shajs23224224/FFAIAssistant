@@ -8,6 +8,8 @@ import android.content.IntentFilter
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.net.Uri
 import android.provider.Settings
 import android.view.View
 import android.widget.Button
@@ -77,11 +79,15 @@ class MainActivity : AppCompatActivity() {
                 // Iniciar el Foreground Service de captura con los datos de MediaProjection
                 startScreenCaptureService(result.resultCode, data)
             } ?: run {
+                Config.setAiStartRequested(false)
+                Config.setCaptureActive(false)
                 Toast.makeText(this, getString(R.string.capture_permission_denied), Toast.LENGTH_LONG).show()
                 isCapturing = false
                 updateUIState()
             }
         } else {
+            Config.setAiStartRequested(false)
+            Config.setCaptureActive(false)
             Toast.makeText(this, getString(R.string.capture_permission_denied), Toast.LENGTH_LONG).show()
             isCapturing = false
             updateUIState()
@@ -90,6 +96,7 @@ class MainActivity : AppCompatActivity() {
     
     private fun startScreenCaptureService(resultCode: Int, data: Intent) {
         Logger.i("MainActivity: Iniciando ScreenCaptureService...")
+        Config.setAiStartRequested(true)
         
         val serviceIntent = Intent(this, ScreenCaptureService::class.java).apply {
             action = ScreenCaptureService.ACTION_START_CAPTURE
@@ -105,6 +112,8 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (e: Exception) {
             Logger.e("MainActivity: Error iniciando ScreenCaptureService", e)
+            Config.setAiStartRequested(false)
+            Config.setCaptureActive(false)
             Toast.makeText(this, getString(R.string.capture_start_error), Toast.LENGTH_LONG).show()
             isCapturing = false
             updateUIState()
@@ -113,6 +122,8 @@ class MainActivity : AppCompatActivity() {
     
     private fun stopScreenCaptureService() {
         Logger.i("MainActivity: Deteniendo ScreenCaptureService...")
+        Config.setAiStartRequested(false)
+        Config.setCaptureActive(false)
         
         val serviceIntent = Intent(this, ScreenCaptureService::class.java).apply {
             action = ScreenCaptureService.ACTION_STOP_CAPTURE
@@ -132,6 +143,7 @@ class MainActivity : AppCompatActivity() {
         initViews()
         loadSettings()
         registerReceivers()
+        ensureBatteryOptimizationExemption()
         
         // Iniciar KeepAliveService para mantener la app activa en segundo plano
         startKeepAliveService()
@@ -140,6 +152,7 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun startKeepAliveService() {
+        Config.setKeepAliveEnabled(true)
         val intent = Intent(this, KeepAliveService::class.java)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -283,10 +296,12 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun requestMediaProjection() {
+        Config.setAiStartRequested(true)
         // Usar el método seguro para obtener MediaProjectionManager
         val projectionManager = getSystemService(MediaProjectionManager::class.java)
         if (projectionManager == null) {
             Logger.e("MainActivity: MediaProjectionManager no disponible")
+            Config.setAiStartRequested(false)
             Toast.makeText(this, "Error: MediaProjectionManager no disponible", Toast.LENGTH_LONG).show()
             return
         }
@@ -320,6 +335,22 @@ class MainActivity : AppCompatActivity() {
             .setMessage(R.string.dialog_calibration_message)
             .setPositiveButton(R.string.understood, null)
             .show()
+    }
+
+    private fun ensureBatteryOptimizationExemption() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+
+        try {
+            val powerManager = getSystemService(PowerManager::class.java) ?: return
+            if (powerManager.isIgnoringBatteryOptimizations(packageName)) return
+
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.parse("package:$packageName")
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Logger.w("MainActivity: No se pudo solicitar exclusión de batería", e)
+        }
     }
     
 }
