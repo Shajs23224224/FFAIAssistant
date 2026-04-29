@@ -18,50 +18,136 @@ import kotlinx.coroutines.withContext
 class SuperAgentCoordinator(private val context: Context) {
     companion object {
         const val TAG = "SuperAgentCoordinator"
-        const val USE_WM = true
-        const val USE_TX = true
-        const val USE_ICM = true
-        const val USE_HRL = true
-        const val USE_MAML = true
     }
 
-    private lateinit var worldModel: WorldModel
-    private lateinit var dreamer: DreamerAgent
-    private lateinit var transformer: TransformerAgent
-    private lateinit var icm: ICMModule
-    private lateinit var intrinsic: IntrinsicRewardEngine
-    private lateinit var metaController: MetaController
-    private lateinit var subPolicy: SubPolicyManager
-    private lateinit var maml: MAMLAgent
-    private lateinit var fastAdapt: FastAdaptation
+    // Feature flags - se deshabilitan automáticamente si falla la carga
+    private var useWM = true
+    private var useTX = true
+    private var useICM = true
+    private var useHRL = true
+    private var useMAML = true
+
+    // Componentes - nullable para manejar fallos de inicialización
+    private var worldModel: WorldModel? = null
+    private var dreamer: DreamerAgent? = null
+    private var transformer: TransformerAgent? = null
+    private var icm: ICMModule? = null
+    private var intrinsic: IntrinsicRewardEngine? = null
+    private var metaController: MetaController? = null
+    private var subPolicy: SubPolicyManager? = null
+    private var maml: MAMLAgent? = null
+    private var fastAdapt: FastAdaptation? = null
 
     private var isInit = false
     private var step = 0
 
     suspend fun initialize(): Boolean = withContext(Dispatchers.Default) {
         try {
-            if (USE_WM) {
-                worldModel = WorldModel(context).apply { initialize() }
-                dreamer = DreamerAgent(context, worldModel).apply { initialize() }
+            var wmOk = false
+            var txOk = false
+            var icmOk = false
+            var hrlOk = false
+            var mamlOk = false
+            
+            // World Model + Dreamer
+            if (useWM) {
+                try {
+                    val wm = WorldModel(context)
+                    wmOk = wm.initialize()
+                    if (wmOk) {
+                        worldModel = wm
+                        val dr = DreamerAgent(context, wm)
+                        if (dr.initialize()) {
+                            dreamer = dr
+                        } else {
+                            wmOk = false
+                            Logger.w(TAG, "Dreamer failed to initialize")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Logger.e(TAG, "WorldModel/Dreamer error", e)
+                    wmOk = false
+                }
+                useWM = wmOk
             }
-            if (USE_TX) transformer = TransformerAgent(context).apply { initialize() }
-            if (USE_ICM) {
-                icm = ICMModule(context).apply { initialize() }
-                intrinsic = IntrinsicRewardEngine(icm)
+            
+            // Transformer
+            if (useTX) {
+                try {
+                    val tx = TransformerAgent(context)
+                    txOk = tx.initialize()
+                    if (txOk) transformer = tx
+                } catch (e: Exception) {
+                    Logger.e(TAG, "Transformer error", e)
+                    txOk = false
+                }
+                useTX = txOk
             }
-            if (USE_HRL) {
-                metaController = MetaController(context).apply { initialize() }
-                subPolicy = SubPolicyManager(context).apply { initialize() }
+            
+            // ICM Curiosity
+            if (useICM) {
+                try {
+                    val ic = ICMModule(context)
+                    icmOk = ic.initialize()
+                    if (icmOk) {
+                        icm = ic
+                        intrinsic = IntrinsicRewardEngine(ic)
+                    }
+                } catch (e: Exception) {
+                    Logger.e(TAG, "ICM error", e)
+                    icmOk = false
+                }
+                useICM = icmOk
             }
-            if (USE_MAML) {
-                maml = MAMLAgent(context).apply { initialize() }
-                fastAdapt = FastAdaptation(maml)
+            
+            // Hierarchical RL
+            if (useHRL) {
+                try {
+                    val mc = MetaController(context)
+                    val mcOk = mc.initialize()
+                    if (mcOk) {
+                        metaController = mc
+                        val sp = SubPolicyManager(context)
+                        val spOk = sp.initialize()
+                        if (spOk) {
+                            subPolicy = sp
+                            hrlOk = true
+                        } else {
+                            Logger.w(TAG, "SubPolicy failed")
+                            hrlOk = false
+                        }
+                    } else {
+                        Logger.w(TAG, "MetaController failed")
+                        hrlOk = false
+                    }
+                } catch (e: Exception) {
+                    Logger.e(TAG, "HRL error", e)
+                    hrlOk = false
+                }
+                useHRL = hrlOk
             }
-            isInit = true
-            Logger.i(TAG, "SuperAgent initialized")
-            true
+            
+            // MAML Meta-learning
+            if (useMAML) {
+                try {
+                    val ml = MAMLAgent(context)
+                    mamlOk = ml.initialize()
+                    if (mamlOk) {
+                        maml = ml
+                        fastAdapt = FastAdaptation(ml)
+                    }
+                } catch (e: Exception) {
+                    Logger.e(TAG, "MAML error", e)
+                    mamlOk = false
+                }
+                useMAML = mamlOk
+            }
+            
+            isInit = wmOk || txOk || icmOk || hrlOk || mamlOk // Al menos uno funciona
+            Logger.i(TAG, "SuperAgent initialized: WM=$wmOk TX=$txOk ICM=$icmOk HRL=$hrlOk MAML=$mamlOk")
+            isInit
         } catch (e: Exception) {
-            Logger.e(TAG, "Init error", e)
+            Logger.e(TAG, "Critical init error", e)
             false
         }
     }
@@ -70,15 +156,15 @@ class SuperAgentCoordinator(private val context: Context) {
         val start = System.currentTimeMillis()
         step++
 
-        val latent = if (USE_WM) worldModel.encodeObservation(bitmap) else null
-        val txAct = if (USE_TX) transformer.selectAction(state) else null
-        val dreamAct = if (USE_WM && latent != null) dreamer.selectAction(latent, DreamerAgent.Mode.PLANNER) else null
-        val goal = if (USE_HRL) metaController.selectGoal(state) else MetaController.Goal.ENGAGE
-        val subAct = if (USE_HRL) subPolicy.selectAction(state, goal) else null
+        val latent = if (useWM) worldModel?.encodeObservation(bitmap) else null
+        val txAct = if (useTX) transformer?.selectAction(state) else null
+        val dreamAct = if (useWM && latent != null) dreamer?.selectAction(latent, DreamerAgent.Mode.PLANNER) else null
+        val goal = if (useHRL) metaController?.selectGoal(state) ?: MetaController.Goal.ENGAGE
+        val subAct = if (useHRL) subPolicy?.selectAction(state, goal) else null
 
-        if (USE_MAML) {
-            val adapt = fastAdapt.detectAndAdapt(state, 0, 0, 1f, "normal")
-            if (adapt.adapted) Logger.d(TAG, "Adapt: ${adapt.contextType}")
+        if (useMAML) {
+            val adapt = fastAdapt?.detectAndAdapt(state, 0, 0, 1f, "normal")
+            if (adapt?.adapted == true) Logger.d(TAG, "Adapt: ${adapt.contextType}")
         }
 
         val action = ensembleVote(txAct?.action, dreamAct?.action, subAct?.action)
@@ -104,25 +190,26 @@ class SuperAgentCoordinator(private val context: Context) {
     }
 
     fun computeReward(s: FloatArray, a: Int, ns: FloatArray, r: Float): TotalReward {
-        return if (USE_ICM) intrinsic.computeTotalReward(s, a, ns, r)
+        return if (useICM) intrinsic?.computeTotalReward(s, a, ns, r)
+            ?: TotalReward(r, r, 0f, 0f, 0f, 0f)
         else TotalReward(r, r, 0f, 0f, 0f, 0f)
     }
 
     fun endEpisode(finalR: Float) {
-        if (USE_WM) dreamer.endEpisode()
-        if (USE_TX) transformer.resetSequence()
-        if (USE_ICM) intrinsic.reset()
-        if (USE_HRL) metaController.resetEpisode()
-        if (USE_MAML) fastAdapt.reset()
+        if (useWM) dreamer?.endEpisode()
+        if (useTX) transformer?.resetSequence()
+        if (useICM) intrinsic?.reset()
+        if (useHRL) metaController?.resetEpisode()
+        if (useMAML) fastAdapt?.reset()
         Logger.i(TAG, "Episode ended. Reward: $finalR")
     }
 
     fun release() {
-        if (USE_WM) { dreamer.release(); worldModel.release() }
-        if (USE_TX) transformer.release()
-        if (USE_ICM) icm.release()
-        if (USE_HRL) { metaController.release(); subPolicy.release() }
-        if (USE_MAML) maml.release()
+        if (useWM) { dreamer?.release(); worldModel?.release() }
+        if (useTX) transformer?.release()
+        if (useICM) icm?.release()
+        if (useHRL) { metaController?.release(); subPolicy?.release() }
+        if (useMAML) maml?.release()
     }
 }
 
