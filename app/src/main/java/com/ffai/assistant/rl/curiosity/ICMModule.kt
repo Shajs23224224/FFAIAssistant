@@ -77,11 +77,16 @@ class ICMModule(private val context: Context) {
             return state.sliceArray(0 until minOf(state.size, FEATURE_DIM))
         }
         
-        val input = Array(1) { state }
-        val output = Array(1) { FloatArray(FEATURE_DIM) }
-        
-        featureNet?.run(input, output)
-        return output[0]
+        return try {
+            val input = Array(1) { state }
+            val output = Array(1) { FloatArray(FEATURE_DIM) }
+            
+            featureNet?.run(input, output)
+            output[0]
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error en extractFeatures", e)
+            state.sliceArray(0 until minOf(state.size, FEATURE_DIM))
+        }
     }
     
     /**
@@ -93,17 +98,22 @@ class ICMModule(private val context: Context) {
             return ForwardResult(currentFeatures, 0f, 0f)
         }
         
-        val actionOneHot = FloatArray(ACTION_DIM) { 0f }.apply { if (action in 0..14) this[action] = 1f }
-        val input = Array(1) { currentFeatures + actionOneHot }
-        val output = Array(1) { FloatArray(FEATURE_DIM) }
-        
-        forwardNet?.run(input, output)
-        
-        return ForwardResult(
-            predictedNextFeatures = output[0],
-            confidence = 0.5f,
-            lossEstimate = 0f
-        )
+        return try {
+            val actionOneHot = FloatArray(ACTION_DIM) { 0f }.apply { if (action in 0..14) this[action] = 1f }
+            val input = Array(1) { currentFeatures + actionOneHot }
+            val output = Array(1) { FloatArray(FEATURE_DIM) }
+            
+            forwardNet?.run(input, output)
+            
+            ForwardResult(
+                predictedNextFeatures = output[0],
+                confidence = 0.5f,
+                lossEstimate = 0f
+            )
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error en forwardModel", e)
+            ForwardResult(currentFeatures, 0f, 0f)
+        }
     }
     
     /**
@@ -115,16 +125,21 @@ class ICMModule(private val context: Context) {
             return InverseResult(0, FloatArray(ACTION_DIM) { 1f / ACTION_DIM }, 0f)
         }
         
-        val input = Array(1) { currentFeatures + nextFeatures }
-        val output = Array(1) { FloatArray(ACTION_DIM) }
-        
-        inverseNet?.run(input, output)
-        
-        val probs = softmax(output[0])
-        val predictedAction = probs.indices.maxByOrNull { probs[it] } ?: 0
-        val entropy = calculateEntropy(probs)
-        
-        return InverseResult(predictedAction, probs, entropy)
+        return try {
+            val input = Array(1) { currentFeatures + nextFeatures }
+            val output = Array(1) { FloatArray(ACTION_DIM) }
+            
+            inverseNet?.run(input, output)
+            
+            val probs = softmax(output[0])
+            val predictedAction = probs.indices.maxByOrNull { probs[it] } ?: 0
+            val entropy = calculateEntropy(probs)
+            
+            InverseResult(predictedAction, probs, entropy)
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error en inverseModel", e)
+            InverseResult(0, FloatArray(ACTION_DIM) { 1f / ACTION_DIM }, 0f)
+        }
     }
     
     /**
