@@ -133,7 +133,24 @@ class MainActivity : AppCompatActivity() {
         loadSettings()
         registerReceivers()
         
+        // Iniciar KeepAliveService para mantener la app activa en segundo plano
+        startKeepAliveService()
+        
         Logger.i("MainActivity creada - IA 100% Local")
+    }
+    
+    private fun startKeepAliveService() {
+        val intent = Intent(this, KeepAliveService::class.java)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ContextCompat.startForegroundService(this, intent)
+            } else {
+                startService(intent)
+            }
+            Logger.i("MainActivity: KeepAliveService iniciado")
+        } catch (e: Exception) {
+            Logger.e("MainActivity: Error iniciando KeepAliveService", e)
+        }
     }
     
     

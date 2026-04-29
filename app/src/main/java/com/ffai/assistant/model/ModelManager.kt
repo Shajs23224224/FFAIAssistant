@@ -5,46 +5,40 @@ import com.ffai.assistant.utils.Logger
 import java.io.File
 
 /**
- * ModelManager - Placeholders + Descarga + Offline
+ * ModelManager - Gestiona modelos TFLite embebidos en assets
  */
 class ModelManager(private val context: Context) {
     
-    private val modelsDir = File(context.getExternalFilesDir(null), "models")
     val requiredModels = listOf("yolov8n_fp16.tflite", "dqn_dueling.tflite", "dqn_target.tflite",
         "ppo_actor.tflite", "ppo_critic.tflite", "sac_actor.tflite", "sac_q1.tflite", "sac_q2.tflite",
         "world_model_encoder.tflite", "world_model_transition.tflite", "world_model_reward.tflite",
-        "transformer_policy.tflite", "icm_forward.tflite", "icm_inverse.tflite",
+        "transformer_policy.tflite", "icm_forward.tflite", "icm_inverse.tflite", "icm_feature.tflite",
         "meta_controller.tflite", "sub_policies.tflite", "maml_meta.tflite")
     
-    init { modelsDir.mkdirs() }
-    
     fun initialize(): Boolean {
+        // Verificar que todos los modelos existen en assets
+        val assetManager = context.assets
         requiredModels.forEach { name ->
-            val file = File(modelsDir, name)
-            if (!file.exists() || file.length() == 0L) {
-                createPlaceholder(name)
+            try {
+                assetManager.openFd(name).close()
+                Logger.i("ModelManager", "Modelo encontrado en assets: $name")
+            } catch (e: Exception) {
+                Logger.e("ModelManager", "Modelo NO encontrado en assets: $name", e)
             }
         }
         return true
     }
     
-    private fun createPlaceholder(name: String) {
-        File(modelsDir, "$name.placeholder").writeText("PLACEHOLDER")
-    }
-    
     fun isPlaceholder(name: String): Boolean {
-        val file = File(modelsDir, name)
-        val placeholder = File(modelsDir, "$name.placeholder")
-        return placeholder.exists() || !file.exists() || file.length() < 1024
-    }
-    
-    fun updateFromLocal(source: File, name: String): Boolean {
-        if (!source.exists() || source.length() < 1024) return false
-        val target = File(modelsDir, name)
-        source.copyTo(target, overwrite = true)
-        File(modelsDir, "$name.placeholder").delete()
-        Logger.i("ModelManager", "Updated $name from local file")
-        return true
+        // En assets, verificar que el archivo existe y tiene tamaño válido
+        return try {
+            val fd = context.assets.openFd(name)
+            val valid = fd.declaredLength >= 1024
+            fd.close()
+            !valid
+        } catch (e: Exception) {
+            true // Si no existe, es placeholder
+        }
     }
     
     fun getStatus() = requiredModels.associateWith { 
