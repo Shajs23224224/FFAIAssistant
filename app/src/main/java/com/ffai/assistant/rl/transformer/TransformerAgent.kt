@@ -230,11 +230,16 @@ class TransformerAgent(private val context: Context) {
             return FloatArray(NUM_ACTIONS + 1) { 0f }
         }
         
-        val input = Array(1) { sequence }
-        val output = Array(1) { FloatArray(NUM_ACTIONS + 1) }
-        
-        transformerNet?.run(input, output)
-        return output[0]
+        return try {
+            val input = Array(1) { sequence }
+            val output = Array(1) { FloatArray(NUM_ACTIONS + 1) }
+            
+            transformerNet?.run(input, output)
+            output[0]
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error en runInference", e)
+            FloatArray(NUM_ACTIONS + 1) { 0f } // Valores por defecto seguros
+        }
     }
     
     private fun sampleAction(probs: FloatArray): Int {

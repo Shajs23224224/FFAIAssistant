@@ -49,30 +49,42 @@ class WorldModel(private val context: Context) {
 
     fun encodeObservation(bitmap: Bitmap): LatentState {
         if (!isInitialized) return LatentState.empty()
-        val inputBuffer = preprocessBitmap(bitmap)
-        val input = Array(1) { inputBuffer }
-        val output = Array(1) { FloatArray(STOCHASTIC_DIM) }
-        encoderNet?.run(input, output)
-        stochasticState = output[0].copyOf()
-        return LatentState(stochasticState.copyOf(), deterministicState.copyOf(), deterministicState.copyOf())
+        
+        return try {
+            val inputBuffer = preprocessBitmap(bitmap)
+            val input = Array(1) { inputBuffer }
+            val output = Array(1) { FloatArray(STOCHASTIC_DIM) }
+            encoderNet?.run(input, output)
+            stochasticState = output[0].copyOf()
+            LatentState(stochasticState.copyOf(), deterministicState.copyOf(), deterministicState.copyOf())
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error en encodeObservation", e)
+            LatentState.empty()
+        }
     }
 
     fun predictNextState(action: Int): PredictedState {
         if (!isInitialized) return PredictedState.empty()
-        val actionOneHot = FloatArray(ACTION_DIM) { 0f }.apply { if (action in 0 until ACTION_DIM) this[action] = 1f }
-        val combined = deterministicState + stochasticState + actionOneHot
-        val input = Array(1) { combined }
-        val output = Array(1) { FloatArray(DETERMINISTIC_DIM + STOCHASTIC_DIM + 2) }
-        transitionNet?.run(input, output)
-        val result = output[0]
-        deterministicState = result.sliceArray(0 until DETERMINISTIC_DIM)
-        stochasticState = result.sliceArray(DETERMINISTIC_DIM until DETERMINISTIC_DIM + STOCHASTIC_DIM)
-        predictionCount++
-        return PredictedState(
-            LatentState(stochasticState.copyOf(), deterministicState.copyOf(), deterministicState.copyOf()),
-            result[DETERMINISTIC_DIM + STOCHASTIC_DIM],
-            sigmoid(result[DETERMINISTIC_DIM + STOCHASTIC_DIM + 1])
-        )
+        
+        return try {
+            val actionOneHot = FloatArray(ACTION_DIM) { 0f }.apply { if (action in 0 until ACTION_DIM) this[action] = 1f }
+            val combined = deterministicState + stochasticState + actionOneHot
+            val input = Array(1) { combined }
+            val output = Array(1) { FloatArray(DETERMINISTIC_DIM + STOCHASTIC_DIM + 2) }
+            transitionNet?.run(input, output)
+            val result = output[0]
+            deterministicState = result.sliceArray(0 until DETERMINISTIC_DIM)
+            stochasticState = result.sliceArray(DETERMINISTIC_DIM until DETERMINISTIC_DIM + STOCHASTIC_DIM)
+            predictionCount++
+            PredictedState(
+                LatentState(stochasticState.copyOf(), deterministicState.copyOf(), deterministicState.copyOf()),
+                result[DETERMINISTIC_DIM + STOCHASTIC_DIM],
+                sigmoid(result[DETERMINISTIC_DIM + STOCHASTIC_DIM + 1])
+            )
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error en predictNextState", e)
+            PredictedState.empty()
+        }
     }
 
     fun imagineTrajectory(initialState: LatentState, actions: List<Int>): ImaginedTrajectory {
