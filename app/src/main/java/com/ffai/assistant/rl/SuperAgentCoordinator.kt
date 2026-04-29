@@ -159,7 +159,11 @@ class SuperAgentCoordinator(private val context: Context) {
         val latent = if (useWM) worldModel?.encodeObservation(bitmap) else null
         val txAct = if (useTX) transformer?.selectAction(state) else null
         val dreamAct = if (useWM && latent != null) dreamer?.selectAction(latent, DreamerAgent.Mode.PLANNER) else null
-        val goal = if (useHRL) metaController?.selectGoal(state) ?: MetaController.Goal.ENGAGE
+        val goal = if (useHRL) {
+            metaController?.selectGoal(state) ?: MetaController.Goal.ENGAGE
+        } else {
+            MetaController.Goal.ENGAGE
+        }
         val subAct = if (useHRL) subPolicy?.selectAction(state, goal) else null
 
         if (useMAML) {
