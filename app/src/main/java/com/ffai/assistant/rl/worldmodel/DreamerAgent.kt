@@ -20,8 +20,8 @@ class DreamerAgent(private val context: Context, private val worldModel: WorldMo
     
     companion object {
         const val TAG = "DreamerAgent"
-        const val ACTOR_MODEL = "dreamer_actor.tflite"
-        const val CRITIC_MODEL = "dreamer_critic.tflite"
+        const val ACTOR_MODEL = "world_model_transition.tflite"
+        const val CRITIC_MODEL = "world_model_reward.tflite"
         
         // Hyperparameters
         const val IMAGINATION_HORIZON = 15

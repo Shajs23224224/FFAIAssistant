@@ -28,7 +28,7 @@ class DeepRLCore(private val context: Context) {
 
     companion object {
         const val TAG = "DeepRLCore"
-        const val MODEL_NAME = "deeprl_dueling_dqn.tflite"
+        const val MODEL_NAME = "dqn_dueling.tflite"
         
         // Dimensiones
         const val STATE_SIZE = 256
