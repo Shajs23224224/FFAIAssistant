@@ -202,20 +202,25 @@ class DQNAgent(private val context: Context) {
      * Predice Q-values para un estado.
      */
     private fun predictQValues(state: FloatArray, useTargetNet: Boolean): FloatArray {
-        val net = if (useTargetNet) targetNet else policyNet
-        
-        val input = Array(1) { state }
-        val output = Array(1) { FloatArray(NUM_ACTIONS) }
-        
-        net?.run(input, output)
-        return output[0]
+        return try {
+            val net = if (useTargetNet) targetNet else policyNet
+            
+            val input = Array(1) { state }
+            val output = Array(1) { FloatArray(NUM_ACTIONS) }
+            
+            net?.run(input, output)
+            output[0]
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error en predictQValues", e)
+            FloatArray(NUM_ACTIONS) { 0f } // Valores por defecto seguros
+        }
     }
     
     /**
      * Predice Q-value para acción específica.
      */
     private fun predictQValue(state: FloatArray, action: Int, useTargetNet: Boolean): Float {
-        return predictQValues(state, useTargetNet)[action]
+        return predictQValues(state, useTargetNet).getOrNull(action) ?: 0f
     }
     
     /**

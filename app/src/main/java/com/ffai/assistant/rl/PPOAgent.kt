@@ -266,26 +266,36 @@ class PPOAgent(private val context: Context) {
     }
     
     private fun predictActionProbs(state: FloatArray): FloatArray {
-        val input = Array(1) { state }
-        val output = Array(1) { FloatArray(NUM_ACTIONS) }
-        actorNet?.run(input, output)
-        
-        // Softmax
-        val logits = output[0]
-        val maxLogit = logits.maxOrNull() ?: 0f
-        val expLogits = logits.map { exp(it - maxLogit) }
-        val sumExp = expLogits.sum()
-        return expLogits.map { it / sumExp }.toFloatArray()
+        return try {
+            val input = Array(1) { state }
+            val output = Array(1) { FloatArray(NUM_ACTIONS) }
+            actorNet?.run(input, output)
+            
+            // Softmax
+            val logits = output[0]
+            val maxLogit = logits.maxOrNull() ?: 0f
+            val expLogits = logits.map { exp(it - maxLogit) }
+            val sumExp = expLogits.sum()
+            expLogits.map { it / sumExp }.toFloatArray()
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error en predictActionProbs", e)
+            FloatArray(NUM_ACTIONS) { 1f / NUM_ACTIONS } // Distribución uniforme por defecto
+        }
     }
     
     /**
      * Predice value de estado.
      */
     private fun predictValue(state: FloatArray): Float {
-        val input = Array(1) { state }
-        val output = Array(1) { FloatArray(1) }
-        criticNet?.run(input, output)
-        return output[0][0]
+        return try {
+            val input = Array(1) { state }
+            val output = Array(1) { FloatArray(1) }
+            criticNet?.run(input, output)
+            output[0][0]
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error en predictValue", e)
+            0f // Valor por defecto seguro
+        }
     }
     
     /**

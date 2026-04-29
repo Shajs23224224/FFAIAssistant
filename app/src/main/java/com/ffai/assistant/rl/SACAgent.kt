@@ -297,20 +297,30 @@ class SACAgent(private val context: Context) {
      * Predice probabilidades de acción.
      */
     private fun predictActionProbs(state: FloatArray): FloatArray {
-        val input = Array(1) { state }
-        val output = Array(1) { FloatArray(NUM_ACTIONS) }
-        actorNet?.run(input, output)
-        return softmax(output[0])
+        return try {
+            val input = Array(1) { state }
+            val output = Array(1) { FloatArray(NUM_ACTIONS) }
+            actorNet?.run(input, output)
+            softmax(output[0])
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error en predictActionProbs", e)
+            FloatArray(NUM_ACTIONS) { 1f / NUM_ACTIONS } // Distribución uniforme por defecto
+        }
     }
     
     /**
      * Predice Q-value.
      */
     private fun predictQ(state: FloatArray, action: Int, network: Interpreter?): Float {
-        val input = Array(1) { state + floatArrayOf(action / NUM_ACTIONS.toFloat()) }
-        val output = Array(1) { FloatArray(1) }
-        network?.run(input, output)
-        return output[0][0]
+        return try {
+            val input = Array(1) { state + floatArrayOf(action / NUM_ACTIONS.toFloat()) }
+            val output = Array(1) { FloatArray(1) }
+            network?.run(input, output)
+            output[0][0]
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error en predictQ", e)
+            0f // Valor por defecto seguro
+        }
     }
     
     /**

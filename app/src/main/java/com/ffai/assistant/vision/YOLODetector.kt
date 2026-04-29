@@ -121,33 +121,38 @@ class YOLODetector(private val context: Context) {
             return emptyList()
         }
         
-        val startTime = System.currentTimeMillis()
-        
-        // Preprocesar imagen
-        preprocess(bitmap)
-        
-        // Inferencia
-        interpreter?.run(inputBuffer, outputBuffer)
-        
-        // Post-procesar salida
-        val detections = postprocess(bitmap.width, bitmap.height)
-        
-        // Tracking performance
-        val inferenceTime = System.currentTimeMillis() - startTime
-        totalInferenceTime += inferenceTime
-        inferenceCount++
-        
-        // Log FPS cada segundo
-        frameCount++
-        val now = System.currentTimeMillis()
-        if (now - lastFpsTime >= 1000) {
-            val avgLatency = if (inferenceCount > 0) totalInferenceTime / inferenceCount else 0
-            Logger.d(TAG, "FPS: $frameCount, Latencia: ${inferenceTime}ms, Promedio: ${avgLatency}ms")
-            frameCount = 0
-            lastFpsTime = now
+        return try {
+            val startTime = System.currentTimeMillis()
+            
+            // Preprocesar imagen
+            preprocess(bitmap)
+            
+            // Inferencia
+            interpreter?.run(inputBuffer, outputBuffer)
+            
+            // Post-procesar salida
+            val detections = postprocess(bitmap.width, bitmap.height)
+            
+            // Tracking performance
+            val inferenceTime = System.currentTimeMillis() - startTime
+            totalInferenceTime += inferenceTime
+            inferenceCount++
+            
+            // Log FPS cada segundo
+            frameCount++
+            val now = System.currentTimeMillis()
+            if (now - lastFpsTime >= 1000) {
+                val avgLatency = if (inferenceCount > 0) totalInferenceTime / inferenceCount else 0
+                Logger.d(TAG, "FPS: $frameCount, Latencia: ${inferenceTime}ms, Promedio: ${avgLatency}ms")
+                frameCount = 0
+                lastFpsTime = now
+            }
+            
+            detections
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error durante detección YOLO", e)
+            emptyList() // Retornar lista vacía en caso de error
         }
-        
-        return detections
     }
     
     /**
