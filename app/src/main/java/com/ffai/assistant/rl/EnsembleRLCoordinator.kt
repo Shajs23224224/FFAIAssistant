@@ -28,9 +28,9 @@ class EnsembleRLCoordinator(context: Context) {
         const val WEIGHT_PPO = 0.35f
         const val WEIGHT_SAC = 0.30f
         
-        // Umbrales
-        const val CONSENSUS_THRESHOLD = 0.6f
-        const val MIN_CONFIDENCE = 0.4f
+        // Umbrales - REDUCIDOS para funcionar con modelos TFLite base
+        const val CONSENSUS_THRESHOLD = 0.5f
+        const val MIN_CONFIDENCE = 0.15f  // Reducido de 0.4f para pruebas
     }
     
     // Agentes

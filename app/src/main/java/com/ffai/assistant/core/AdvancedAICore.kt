@@ -957,6 +957,8 @@ class AdvancedAICore(
         decision: EnsembleDecision,
         enemies: List<FusedEnemy>
     ) {
+        Logger.i(TAG, "executeEnhancedAction: action=${decision.action}, conf=${decision.confidence}, enemies=${enemies.size}")
+        
         when (decision.action) {
             ActionType.AIM -> {
                 // Aim al enemigo más cercano
